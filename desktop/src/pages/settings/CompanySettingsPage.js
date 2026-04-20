@@ -95,7 +95,8 @@ const CompanySettingsPage = () => {
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
-      setMessage({ type: 'error', text: error.message || 'Error loading settings' });
+      const backendMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Error loading settings';
+      setMessage({ type: 'error', text: backendMsg });
     } finally {
       setLoading(false);
     }
@@ -140,7 +141,8 @@ const CompanySettingsPage = () => {
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      setMessage({ type: 'error', text: error.message || 'Error saving settings' });
+      const backendMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Error saving settings';
+      setMessage({ type: 'error', text: backendMsg });
     } finally {
       setSaving(false);
     }
