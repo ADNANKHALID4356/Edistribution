@@ -260,6 +260,12 @@ class CompanySettings {
    */
   static async updateSettings(settingsData) {
     try {
+      // Ensure numeric fields are correctly typed and handle empty strings from frontend
+      if (settingsData.default_tax_percentage === '') settingsData.default_tax_percentage = 0;
+      if (settingsData.default_credit_days === '') settingsData.default_credit_days = 0;
+      if (typeof settingsData.default_tax_percentage === 'string') settingsData.default_tax_percentage = parseFloat(settingsData.default_tax_percentage) || 0;
+      if (typeof settingsData.default_credit_days === 'string') settingsData.default_credit_days = parseInt(settingsData.default_credit_days, 10) || 0;
+
       // Check whether a row already exists
       const [existing] = await db.query(
         'SELECT id FROM company_settings LIMIT 1'
