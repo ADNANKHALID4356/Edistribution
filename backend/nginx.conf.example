@@ -1,0 +1,124 @@
+# Nginx Configuration for Distribution Management System
+# Save this as: /etc/nginx/sites-available/distribution-api
+# Enable with: ln -s /etc/nginx/sites-available/distribution-api /etc/nginx/sites-enabled/
+
+# ==========================================
+# OPTION 1: Simple Configuration (IP Only)
+# ==========================================
+# Use this if you don't have a domain name
+# Access via: http://YOUR_VPS_IP/api
+
+server {
+    listen 80;
+    server_name YOUR_VPS_IP;
+
+    # API endpoint
+    location /api {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # Timeout settings
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        
+        # Buffer settings
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+        proxy_busy_buffers_size 8k;
+    }
+
+    # Health check (optional - allows checking without /api prefix)
+    location /health {
+        proxy_pass http://localhost:5000/api/health;
+        access_log off;
+    }
+
+    # Root location
+    location / {
+        return 200 'Distribution Management System API\nUse /api endpoints';
+        add_header Content-Type text/plain;
+    }
+}
+
+# ==========================================
+# OPTION 2: Domain Configuration
+# ==========================================
+# Use this if you have a domain name
+# Access via: http://api.yourdomain.com
+
+# server {
+#     listen 80;
+#     server_name api.yourdomain.com;
+#
+#     # API endpoint
+#     location / {
+#         proxy_pass http://localhost:5000/api;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection 'upgrade';
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_cache_bypass $http_upgrade;
+#
+#         # Timeout settings
+#         proxy_connect_timeout 60s;
+#         proxy_send_timeout 60s;
+#         proxy_read_timeout 60s;
+#     }
+# }
+
+# ==========================================
+# OPTION 3: SSL/HTTPS Configuration
+# ==========================================
+# Use this after setting up Let's Encrypt SSL
+# Certbot will modify this file automatically
+
+# server {
+#     listen 443 ssl http2;
+#     server_name api.yourdomain.com;
+#
+#     ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
+#     include /etc/letsencrypt/options-ssl-nginx.conf;
+#     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+#
+#     location / {
+#         proxy_pass http://localhost:5000/api;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection 'upgrade';
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_cache_bypass $http_upgrade;
+#     }
+# }
+#
+# # Redirect HTTP to HTTPS
+# server {
+#     listen 80;
+#     server_name api.yourdomain.com;
+#     return 301 https://$server_name$request_uri;
+# }
+
+# ==========================================
+# INSTRUCTIONS:
+# ==========================================
+# 1. Replace YOUR_VPS_IP with actual IP address
+# 2. OR replace yourdomain.com with your actual domain
+# 3. Uncomment the configuration you want to use
+# 4. Save and test: nginx -t
+# 5. Reload: systemctl reload nginx
+# ==========================================

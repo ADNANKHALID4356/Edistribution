@@ -1,0 +1,36 @@
+{
+  "appId": "com.ummahtechinnovations.distributionsystem",
+  "productName": "Distribution Management System",
+  "directories": {
+    "output": "dist-standalone",
+    "buildResources": "."
+  },
+  "files": [
+    "build/**/*",
+    "electron.js",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "backend-standalone",
+      "to": "backend-standalone",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Distribution Management System"
+  }
+}

@@ -1,0 +1,199 @@
+﻿Connected!
+
+==================================================
+1. CURRENT PM2 CONFIG
+==================================================
+
+> pm2 jlist 2>/dev/null | python3 -c "import sys,json; [print(f\"ID:{p['pm_id']} name:{p['name']} cwd:{p.get('pm2_env',{}).get('pm_cwd','')} script:{p.get('pm2_env',{}).get('pm_exec_path','')}\") for p in json.loads(sys.stdin.read())]"
+ID:0 name:it-api cwd:/var/www/internationaltijarat/backend script:/var/www/internationaltijarat/backend/api.js
+ID:1 name:distribution-api cwd:/var/www/distribution-system script:/var/www/distribution-system/server.js
+ID:2 name:ummah-backend cwd:/var/www/Ummahback script:/var/www/Ummahback/server.js
+ID:3 name:gandhara cwd:/var/www/Gandhara/backend script:/var/www/Gandhara/backend/server.js
+
+==================================================
+2. FILE STRUCTURE
+==================================================
+
+> ls -la /var/www/distribution-system/server.js 2>/dev/null
+-rw-r--r-- 1 root root 8039 Feb  7 18:48 /var/www/distribution-system/server.js
+
+> ls -la /var/www/distribution-system/backend/server.js 2>/dev/null
+-rw-r--r-- 1 root root 8520 Mar  8 05:43 /var/www/distribution-system/backend/server.js
+
+> ls /var/www/distribution-system/ | head -20
+ACTION_REQUIRED_MOBILE_SYNC_FIX.md
+API_DOCUMENTATION.md
+CLEANUP_COMPLETE_TESTING_READY.md
+COMPREHENSIVE_DESKTOP_TESTING_CHECKLIST.md
+COMPREHENSIVE_SYNC_ANALYSIS.md
+CONTRIBUTING.md
+CRITICAL_ROOT_CAUSE_DIAGNOSIS.md
+DOCUMENTATION_INDEX.md
+FINAL_FIX_COMPLETE_ACTION_REQUIRED.md
+INSTALLATION_GUIDE.md
+LICENSE
+MOBILE_SYNC_ROOT_CAUSE_ANALYSIS.md
+QUICK_FIX_SUMMARY.md
+QUICK_START.md
+README.md
+SECURITY.md
+SERVER_CONFIG.md
+SHOP_DELETE_AND_LEDGER_FIX.md
+START-SYSTEM.bat
+SYNC_SUMMARY.md
+
+==================================================
+3. ENV FILES
+==================================================
+
+> cat /var/www/distribution-system/.env 2>/dev/null || echo 'NO ROOT .env'
+PORT=5001
+NODE_ENV=production
+
+DB_HOST=localhost
+DB_USER=dist_user
+DB_PASSWORD=Dist2025Secure
+DB_NAME=distribution_db
+DB_PORT=3306
+
+JWT_SECRET=8f3e9d5a7b2c1f6e4a9d8b7c3e5f1a2d6b8e4c7a9f5d3b1e8c4a7f2d9b6e3c1a5f
+JWT_EXPIRE=7d
+
+COMPANY_NAME=Ummahtechinnovations
+COMPANY_WEBSITE=ummahtechinnovations.com
+CORS_ORIGIN=*
+
+> cat /var/www/distribution-system/backend/.env 2>/dev/null || echo 'NO BACKEND .env'
+NO BACKEND .env
+
+==================================================
+4. PORT CHECK
+==================================================
+
+> netstat -tlnp 2>/dev/null | grep -E '5001|5000' || ss -tlnp | grep -E '5001|5000'
+tcp        0      0 127.0.0.1:5001          0.0.0.0:*               LISTEN      571320/node /var/ww 
+tcp        0      0 147.93.108.205:5001     0.0.0.0:*               LISTEN      650622/node /var/ww 
+tcp6       0      0 :::5000                 :::*                    LISTEN      489439/node /var/ww
+
+==================================================
+5. FIX PM2 - Point to backend/server.js
+==================================================
+
+> pm2 stop distribution-api 2>/dev/null
+[PM2] Applying action stopProcessId on app [distribution-api](ids: [ 1 ])
+[PM2] [distribution-api](1) Γ£ô
+ΓöîΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé id Γöé name                Γöé namespace   Γöé version Γöé mode    Γöé pid      Γöé uptime Γöé Γå║    Γöé status    Γöé cpu      Γöé mem      Γöé user     Γöé watching Γöé
+Γö£ΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+Γöé 1  Γöé distribution-api    Γöé default     Γöé 1.0.0   Γöé fork    Γöé 0        Γöé 0      Γöé 1    Γöé stopped   Γöé 0%       Γöé 0b       Γöé root     Γöé disabled Γöé
+Γöé 3  Γöé gandhara            Γöé default     Γöé 1.0.0   Γöé fork    Γöé 571320   Γöé 4D     Γöé 5    Γöé online    Γöé 0%       Γöé 313.1mb  Γöé root     Γöé disabled Γöé
+Γöé 0  Γöé it-api              Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489432   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 155.9mb  Γöé root     Γöé disabled Γöé
+Γöé 2  Γöé ummah-backend       Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489439   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 86.5mb   Γöé root     Γöé disabled Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+> pm2 delete distribution-api 2>/dev/null
+[PM2] Applying action deleteProcessId on app [distribution-api](ids: [ 1 ])
+[PM2] [distribution-api](1) Γ£ô
+ΓöîΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé id Γöé name             Γöé namespace   Γöé version Γöé mode    Γöé pid      Γöé uptime Γöé Γå║    Γöé status    Γöé cpu      Γöé mem      Γöé user     Γöé watching Γöé
+Γö£ΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+Γöé 3  Γöé gandhara         Γöé default     Γöé 1.0.0   Γöé fork    Γöé 571320   Γöé 4D     Γöé 5    Γöé online    Γöé 0%       Γöé 313.5mb  Γöé root     Γöé disabled Γöé
+Γöé 0  Γöé it-api           Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489432   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 156.0mb  Γöé root     Γöé disabled Γöé
+Γöé 2  Γöé ummah-backend    Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489439   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 86.1mb   Γöé root     Γöé disabled Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+> cat /var/www/distribution-system/backend/.env 2>/dev/null | grep DB_HOST || echo 'NO_DB_CONFIG'
+NO_DB_CONFIG
+
+> cat /var/www/distribution-system/.env 2>/dev/null || echo 'NO_ROOT_ENV'
+PORT=5001
+NODE_ENV=production
+
+DB_HOST=localhost
+DB_USER=dist_user
+DB_PASSWORD=Dist2025Secure
+DB_NAME=distribution_db
+DB_PORT=3306
+
+JWT_SECRET=8f3e9d5a7b2c1f6e4a9d8b7c3e5f1a2d6b8e4c7a9f5d3b1e8c4a7f2d9b6e3c1a5f
+JWT_EXPIRE=7d
+
+COMPANY_NAME=Ummahtechinnovations
+COMPANY_WEBSITE=ummahtechinnovations.com
+CORS_ORIGIN=*
+Copying root .env to backend/.env
+
+> cp /var/www/distribution-system/.env /var/www/distribution-system/backend/.env
+
+> cd /var/www/distribution-system/backend && pm2 start server.js --name distribution-api --cwd /var/www/distribution-system/backend 2>&1
+[PM2] Starting /var/www/distribution-system/backend/server.js in fork_mode (1 instance)
+[PM2] Done.
+ΓöîΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé id Γöé name                Γöé namespace   Γöé version Γöé mode    Γöé pid      Γöé uptime Γöé Γå║    Γöé status    Γöé cpu      Γöé mem      Γöé user     Γöé watching Γöé
+Γö£ΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+Γöé 4  Γöé distribution-api    Γöé default     Γöé 1.0.0   Γöé fork    Γöé 650794   Γöé 0s     Γöé 0    Γöé online    Γöé 0%       Γöé 19.0mb   Γöé root     Γöé disabled Γöé
+Γöé 3  Γöé gandhara            Γöé default     Γöé 1.0.0   Γöé fork    Γöé 571320   Γöé 4D     Γöé 5    Γöé online    Γöé 0%       Γöé 313.2mb  Γöé root     Γöé disabled Γöé
+Γöé 0  Γöé it-api              Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489432   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 155.9mb  Γöé root     Γöé disabled Γöé
+Γöé 2  Γöé ummah-backend       Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489439   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 86.2mb   Γöé root     Γöé disabled Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+> pm2 save
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+
+==================================================
+6. VERIFY
+==================================================
+
+> pm2 list
+ΓöîΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé id Γöé name                Γöé namespace   Γöé version Γöé mode    Γöé pid      Γöé uptime Γöé Γå║    Γöé status    Γöé cpu      Γöé mem      Γöé user     Γöé watching Γöé
+Γö£ΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+Γöé 4  Γöé distribution-api    Γöé default     Γöé 1.0.0   Γöé fork    Γöé 650794   Γöé 5s     Γöé 0    Γöé online    Γöé 0%       Γöé 72.5mb   Γöé root     Γöé disabled Γöé
+Γöé 3  Γöé gandhara            Γöé default     Γöé 1.0.0   Γöé fork    Γöé 571320   Γöé 4D     Γöé 5    Γöé online    Γöé 0%       Γöé 313.0mb  Γöé root     Γöé disabled Γöé
+Γöé 0  Γöé it-api              Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489432   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 155.8mb  Γöé root     Γöé disabled Γöé
+Γöé 2  Γöé ummah-backend       Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489439   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 86.2mb   Γöé root     Γöé disabled Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+> curl -s http://localhost:5001/api/health 2>/dev/null
+{"status":"OK","message":"Gandhara API running successfully","timestamp":"2026-03-08T05:48:01.881Z","services":{"products":"active","visitPlaces":"active","masters":"active","auth":"active","seo":"active","bulkUpload":"active"},"endpoints":{"auth":"POST /api/auth/login, POST /api/auth/setup, GET /api/auth/profile","public":"GET /api/products, /api/visit-places, /api/masters","protected":"POST /api/admin/products/add, GET /api/admin/products, /api/admin/visit-places, /api/admin/masters","bulkUpload":"POST /api/bulk-upload/bulk-images, POST /api/bulk-upload/bulk-zip (protected)","seo":"GET /robots.txt, GET /image-sitemap.xml, GET /sitemap.xml"}}
+
+> pm2 logs distribution-api --lines 15 --nostream 2>/dev/null
+[TAILING] Tailing last 15 lines for [distribution-api] process (change the value with --lines option)
+/root/.pm2/logs/distribution-api-error.log last 15 lines:
+4|distribu |     at /var/www/distribution-system/src/middleware/auth.js:121:5
+4|distribu |     at Layer.handleRequest (/var/www/distribution-system/node_modules/router/lib/layer.js:152:17)
+4|distribu |     at next (/var/www/distribution-system/node_modules/router/lib/route.js:157:13)
+4|distribu |     at Route.dispatch (/var/www/distribution-system/node_modules/router/lib/route.js:117:3)
+4|distribu |     at handle (/var/www/distribution-system/node_modules/router/index.js:435:11) {
+4|distribu |   code: 'ER_NO_SUCH_TABLE',
+4|distribu |   errno: 1146,
+4|distribu |   sql: '\n' +
+4|distribu |     '      SELECT * FROM v_shop_balance_summary\n' +
+4|distribu |     '      ORDER BY current_balance DESC\n' +
+4|distribu |     '      LIMIT 50 OFFSET 0\n' +
+4|distribu |     '    ',
+4|distribu |   sqlState: '42S02',
+4|distribu |   sqlMessage: "Table 'distribution_db.v_shop_balance_summary' doesn't exist"
+4|distribu | }
+
+/root/.pm2/logs/distribution-api-out.log last 15 lines:
+4|distribu | ≡ƒÜÇ =====================================
+4|distribu |    Server running on http://147.93.108.205:5001
+4|distribu |    Local: http://localhost:5001
+4|distribu |    Network: http://Not found:5001
+4|distribu |    ≡ƒô▒ Mobile App: Use http://Not found:5001/api
+4|distribu |    Company: Ummahtechinnovations
+4|distribu |    Environment: production
+4|distribu |    =====================================
+4|distribu | 
+4|distribu | Γ£à Database connected successfully
+4|distribu |    Γ£à Added company_name to products
+4|distribu |    Γ£à Table stock_returns ready
+4|distribu |    Γ£à Table stock_return_items ready
+4|distribu |    Γ£à Table daily_collections ready
+4|distribu | Γ£à Auto-migrations completed successfully
+
+==================================================
+DONE!
+==================================================

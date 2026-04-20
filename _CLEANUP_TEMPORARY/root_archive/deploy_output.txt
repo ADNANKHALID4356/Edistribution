@@ -1,0 +1,142 @@
+﻿Connecting to 147.93.108.205...
+Connected!
+
+==================================================
+STEP 1: Check current deployment
+==================================================
+
+> ls -la /var/www/distribution-system/server.js 2>/dev/null && echo 'App dir exists' || echo 'App dir NOT FOUND'
+-rw-r--r-- 1 root root 8039 Feb  7 18:48 /var/www/distribution-system/server.js
+App dir exists
+
+> pm2 list 2>/dev/null || echo 'PM2 not found'
+ΓöîΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé id Γöé name                Γöé namespace   Γöé version Γöé mode    Γöé pid      Γöé uptime Γöé Γå║    Γöé status    Γöé cpu      Γöé mem      Γöé user     Γöé watching Γöé
+Γö£ΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+Γöé 1  Γöé distribution-api    Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489433   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 80.0mb   Γöé root     Γöé disabled Γöé
+Γöé 3  Γöé gandhara            Γöé default     Γöé 1.0.0   Γöé fork    Γöé 571320   Γöé 4D     Γöé 5    Γöé online    Γöé 0%       Γöé 313.0mb  Γöé root     Γöé disabled Γöé
+Γöé 0  Γöé it-api              Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489432   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 155.5mb  Γöé root     Γöé disabled Γöé
+Γöé 2  Γöé ummah-backend       Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489439   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 86.1mb   Γöé root     Γöé disabled Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+==================================================
+STEP 2: Check git setup
+==================================================
+
+> cd /var/www/distribution-system && git remote -v 2>/dev/null || echo 'NOT_A_GIT_REPO'
+NOT_A_GIT_REPO
+
+==================================================
+STEP 3: Clone repository from GitHub
+==================================================
+
+> cp -r /var/www/distribution-system /var/www/distribution-system.backup.$(date +%Y%m%d%H%M) 2>/dev/null
+
+> ls /var/www/distribution-system/ 2>/dev/null | head -5
+database
+node_modules
+package-lock.json
+package.json
+server.js
+Directory has files but no git repo. Initializing git...
+
+> cd /var/www/distribution-system && git init && git remote add origin https://github.com/ADNANKHALID4356/distribution_system.git
+Initialized empty Git repository in /var/www/distribution-system/.git/
+
+> cd /var/www/distribution-system && git fetch origin
+
+> cd /var/www/distribution-system && git checkout -f main 2>/dev/null || git checkout -b main origin/main
+branch 'main' set up to track 'origin/main'.
+
+==================================================
+STEP 4: Install backend dependencies
+==================================================
+
+> ls /var/www/distribution-system/backend/server.js 2>/dev/null && echo 'MONOREPO' || echo 'FLAT'
+/var/www/distribution-system/backend/server.js
+MONOREPO
+Backend directory: /var/www/distribution-system/backend
+
+> cd /var/www/distribution-system/backend && npm install --production 2>&1 | tail -5
+38 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+==================================================
+STEP 5: Run database migrations
+==================================================
+
+> cd /var/www/distribution-system/backend && node src/config/migrations.js 2>&1 | tail -20
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+Γ¥î Database connection failed: Access denied for user ''@'localhost' (using password: NO)
+
+==================================================
+STEP 6: Restart PM2 process
+==================================================
+
+> pm2 jlist 2>/dev/null | python3 -c "import sys,json; procs=json.load(sys.stdin); [print(p['name']) for p in procs]" 2>/dev/null || pm2 list 2>/dev/null
+it-api
+distribution-api
+ummah-backend
+gandhara
+
+> cd /var/www/distribution-system/backend && pm2 restart distribution-api 2>/dev/null || pm2 start server.js --name distribution-api 2>&1
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [distribution-api](ids: [ 1 ])
+[PM2] [distribution-api](1) Γ£ô
+ΓöîΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé id Γöé name                Γöé namespace   Γöé version Γöé mode    Γöé pid      Γöé uptime Γöé Γå║    Γöé status    Γöé cpu      Γöé mem      Γöé user     Γöé watching Γöé
+Γö£ΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+Γöé 1  Γöé distribution-api    Γöé default     Γöé 1.0.0   Γöé fork    Γöé 650622   Γöé 0s     Γöé 1    Γöé online    Γöé 0%       Γöé 21.4mb   Γöé root     Γöé disabled Γöé
+Γöé 3  Γöé gandhara            Γöé default     Γöé 1.0.0   Γöé fork    Γöé 571320   Γöé 4D     Γöé 5    Γöé online    Γöé 0%       Γöé 313.1mb  Γöé root     Γöé disabled Γöé
+Γöé 0  Γöé it-api              Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489432   Γöé 7D     Γöé 0    Γöé online    Γöé 5.3%     Γöé 156.1mb  Γöé root     Γöé disabled Γöé
+Γöé 2  Γöé ummah-backend       Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489439   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 86.2mb   Γöé root     Γöé disabled Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+==================================================
+STEP 7: Verify deployment
+==================================================
+
+> pm2 list
+ΓöîΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé id Γöé name                Γöé namespace   Γöé version Γöé mode    Γöé pid      Γöé uptime Γöé Γå║    Γöé status    Γöé cpu      Γöé mem      Γöé user     Γöé watching Γöé
+Γö£ΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+Γöé 1  Γöé distribution-api    Γöé default     Γöé 1.0.0   Γöé fork    Γöé 650622   Γöé 3s     Γöé 1    Γöé online    Γöé 0%       Γöé 70.2mb   Γöé root     Γöé disabled Γöé
+Γöé 3  Γöé gandhara            Γöé default     Γöé 1.0.0   Γöé fork    Γöé 571320   Γöé 4D     Γöé 5    Γöé online    Γöé 0%       Γöé 313.3mb  Γöé root     Γöé disabled Γöé
+Γöé 0  Γöé it-api              Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489432   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 156.3mb  Γöé root     Γöé disabled Γöé
+Γöé 2  Γöé ummah-backend       Γöé default     Γöé 1.0.0   Γöé fork    Γöé 489439   Γöé 7D     Γöé 0    Γöé online    Γöé 0%       Γöé 86.6mb   Γöé root     Γöé disabled Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+> curl -s http://localhost:5001/api/health 2>/dev/null || curl -s http://127.0.0.1:5001/api/health 2>/dev/null
+{"status":"OK","message":"Gandhara API running successfully","timestamp":"2026-03-08T05:45:09.143Z","services":{"products":"active","visitPlaces":"active","masters":"active","auth":"active","seo":"active","bulkUpload":"active"},"endpoints":{"auth":"POST /api/auth/login, POST /api/auth/setup, GET /api/auth/profile","public":"GET /api/products, /api/visit-places, /api/masters","protected":"POST /api/admin/products/add, GET /api/admin/products, /api/admin/visit-places, /api/admin/masters","bulkUpload":"POST /api/bulk-upload/bulk-images, POST /api/bulk-upload/bulk-zip (protected)","seo":"GET /robots.txt, GET /image-sitemap.xml, GET /sitemap.xml"}}
+
+> pm2 logs distribution-api --lines 10 --nostream 2>/dev/null
+[TAILING] Tailing last 10 lines for [distribution-api] process (change the value with --lines option)
+/root/.pm2/logs/distribution-api-error.log last 10 lines:
+1|distribu |   code: 'ER_NO_SUCH_TABLE',
+1|distribu |   errno: 1146,
+1|distribu |   sql: '\n' +
+1|distribu |     '      SELECT * FROM v_shop_balance_summary\n' +
+1|distribu |     '      ORDER BY current_balance DESC\n' +
+1|distribu |     '      LIMIT 50 OFFSET 0\n' +
+1|distribu |     '    ',
+1|distribu |   sqlState: '42S02',
+1|distribu |   sqlMessage: "Table 'distribution_db.v_shop_balance_summary' doesn't exist"
+1|distribu | }
+
+/root/.pm2/logs/distribution-api-out.log last 10 lines:
+1|distribu | ≡ƒÜÇ =====================================
+1|distribu |    Server running on http://147.93.108.205:5001
+1|distribu |    Local: http://localhost:5001
+1|distribu |    Network: http://Not found:5001
+1|distribu |    ≡ƒô▒ Mobile App: Use http://Not found:5001/api
+1|distribu |    Company: Ummahtechinnovations
+1|distribu |    Environment: production
+1|distribu |    =====================================
+1|distribu | 
+1|distribu | Γ£à Database connected successfully
+
+==================================================
+DEPLOYMENT COMPLETE!
+==================================================

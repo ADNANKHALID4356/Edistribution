@@ -1,0 +1,47 @@
+{
+  "appId": "com.ummahtechinnovations.distributionsystem",
+  "productName": "Distribution Management System",
+  "copyright": "Copyright © 2025 Ummah Tech Innovations",
+  "directories": {
+    "output": "dist-installer"
+  },
+  "files": [
+    "build/**/*",
+    "electron-standalone.js",
+    "package.json",
+    "icon.ico"
+  ],
+  "extraResources": [
+    {
+      "from": "backend-standalone",
+      "to": "backend-standalone",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "icon.ico",
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Distribution Management System",
+    "installerIcon": "icon.ico",
+    "uninstallerIcon": "icon.ico",
+    "installerHeaderIcon": "icon.ico",
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true,
+    "menuCategory": true,
+    "include": null,
+    "perMachine": true,
+    "allowElevation": true
+  }
+}

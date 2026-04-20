@@ -1,0 +1,35 @@
+{
+  "appId": "com.ummahtechinnovations.distributionsystem.client",
+  "productName": "Distribution Management System",
+  "copyright": "Copyright © 2026 Ummah Tech Innovations",
+  "directories": {
+    "output": "dist-client"
+  },
+  "files": [
+    "build/**/*",
+    "public/electron-client.js",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "forceCodeSigning": false
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Distribution Management System",
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true,
+    "perMachine": false,
+    "allowElevation": true,
+    "warningsAsErrors": false
+  }
+}

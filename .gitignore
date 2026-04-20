@@ -1,0 +1,231 @@
+# ========================================
+# DISTRIBUTION MANAGEMENT SYSTEM
+# Root .gitignore
+# ========================================
+
+# ==========================================
+# SENSITIVE FILES - NEVER COMMIT THESE
+# ==========================================
+# Environment variables with credentials
+.env
+.env.local
+.env.*.local
+.env.production
+*.env
+!.env.example
+!.env.*.example
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+data/
+*.sql.backup
+
+# Credentials and keys
+*.pem
+*.key
+*.p12
+*.p8
+*.mobileprovision
+*.jks
+secrets/
+credentials/
+
+# ==========================================
+# DEPENDENCIES
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.pnp
+.pnp.js
+.yarn/
+lerna-debug.log*
+
+# ==========================================
+# BUILD ARTIFACTS & OUTPUT
+# ==========================================
+# Desktop builds
+desktop/build/
+desktop/dist/
+desktop/dist-*/
+desktop/backend-standalone/
+desktop/standalone-app/
+desktop/Distribution-System-Portable/
+*.exe
+
+# Mobile builds
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/ios/build/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+*.apk
+*.aab
+*.ipa
+
+# Backend builds
+backend/dist/
+backend/build/
+
+# General build outputs
+build/
+dist/
+out/
+.next/
+coverage/
+
+# ==========================================
+# DEVELOPMENT & DEBUGGING
+# ==========================================
+# Temporary development files
+_TEMPORARY_DEVELOPMENT_FILES/
+temp/
+tmp/
+*.tmp
+*.temp
+.cache/
+.vscode/settings.json
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ==========================================
+# OPERATING SYSTEM
+# ==========================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ==========================================
+# IDE & EDITORS
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*~.nib
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+.history/
+.vs/
+
+# ==========================================
+# TESTING
+# ==========================================
+coverage/
+.nyc_output/
+*.lcov
+.mocha/
+.jest/
+cypress/videos/
+cypress/screenshots/
+
+# ==========================================
+# MISC
+# ==========================================
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional REPL history
+.node_repl_history
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# dotenv environment variable files (except examples)
+.env.test
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Expo
+expo-env.d.ts
+.expo-shared/
+
+# Metro
+.metro-health-check*
+
+# Debug
+*.orig.*
+
+# ==========================================
+# PROJECT SPECIFIC EXCLUSIONS
+# ==========================================
+# Exclude large documentation archives if not needed
+# Uncomment if you want to exclude archived docs:
+# _TEMPORARY_DEVELOPMENT_FILES/documentation_archives/
+
+# Exclude old build scripts if not needed
+# BUILD-OLD-*.bat
+
+# ==========================================
+# KEEP THESE FILES
+# ==========================================
+# Force include important examples and templates
+!.env.example
+!.env.production.example
+!README.md
+!LICENSE
+!CONTRIBUTING.md
+!.github/
