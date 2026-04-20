@@ -233,8 +233,10 @@ class CompanySettings {
    */
   static async getSettings() {
     try {
+      // Use SELECT * so this works regardless of which columns exist in the DB.
+      // rowToSettings() safely maps whatever is returned with || '' fallbacks.
       const [rows] = await db.query(
-        `SELECT ${DB_COLUMNS.join(', ')} FROM company_settings LIMIT 1`
+        'SELECT * FROM company_settings ORDER BY id ASC LIMIT 1'
       );
 
       if (rows && rows.length > 0) {
