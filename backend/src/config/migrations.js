@@ -8,11 +8,11 @@ const db = require('./database');
 
 async function runMigrations() {
   console.log('🔄 Running auto-migrations...');
-  
+
   try {
     // 1. Add company_name to products
     await safeAddColumn('products', 'company_name', 'VARCHAR(200) DEFAULT NULL', 'brand');
-    
+
     // 2. Create stock_returns table
     await safeCreateTable('stock_returns', `
       CREATE TABLE IF NOT EXISTS stock_returns (
@@ -45,7 +45,7 @@ async function runMigrations() {
         INDEX idx_status (status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
-    
+
     // 3. Create stock_return_items table
     await safeCreateTable('stock_return_items', `
       CREATE TABLE IF NOT EXISTS stock_return_items (
@@ -67,7 +67,7 @@ async function runMigrations() {
         INDEX idx_product_id (product_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
-    
+
     // 4. Create daily_collections table
     await safeCreateTable('daily_collections', `
       CREATE TABLE IF NOT EXISTS daily_collections (
@@ -100,42 +100,6 @@ async function runMigrations() {
 
     // 6. Ensure received_from column exists in daily_collections
     await safeAddColumn('daily_collections', 'received_from', 'VARCHAR(200)', 'description');
-
-    // 7. Ensure company_settings has ALL required columns
-    //    The VPS table may have been created from an older migration that lacked
-    //    extended address, banking, branding, and business-settings columns.
-    //    safeAddColumn silently skips columns that already exist (ER_DUP_FIELDNAME).
-    await safeAddColumn('company_settings', 'company_city',                'VARCHAR(100)',                   'company_address');
-    await safeAddColumn('company_settings', 'company_state',               'VARCHAR(100)',                   'company_city');
-    await safeAddColumn('company_settings', 'company_country',             "VARCHAR(100) DEFAULT 'Pakistan'",'company_state');
-    await safeAddColumn('company_settings', 'company_postal_code',         'VARCHAR(20)',                    'company_country');
-    await safeAddColumn('company_settings', 'company_phone',               'VARCHAR(50)',                    'company_postal_code');
-    await safeAddColumn('company_settings', 'company_mobile',              'VARCHAR(50)',                    'company_phone');
-    await safeAddColumn('company_settings', 'company_email',               'VARCHAR(255)',                   'company_mobile');
-    await safeAddColumn('company_settings', 'company_website',             'VARCHAR(255)',                   'company_email');
-    await safeAddColumn('company_settings', 'company_tax_number',          'VARCHAR(100)',                   'company_website');
-    await safeAddColumn('company_settings', 'company_registration_number', 'VARCHAR(100)',                   'company_tax_number');
-    await safeAddColumn('company_settings', 'company_ntn',                 'VARCHAR(100)',                   'company_registration_number');
-    await safeAddColumn('company_settings', 'company_gst_number',          'VARCHAR(100)',                   'company_ntn');
-    await safeAddColumn('company_settings', 'bank_name',                   'VARCHAR(255)',                   'company_gst_number');
-    await safeAddColumn('company_settings', 'bank_account_title',          'VARCHAR(255)',                   'bank_name');
-    await safeAddColumn('company_settings', 'bank_account_number',         'VARCHAR(100)',                   'bank_account_title');
-    await safeAddColumn('company_settings', 'bank_branch',                 'VARCHAR(255)',                   'bank_account_number');
-    await safeAddColumn('company_settings', 'bank_iban',                   'VARCHAR(100)',                   'bank_branch');
-    await safeAddColumn('company_settings', 'bank_swift_code',             'VARCHAR(50)',                    'bank_iban');
-    await safeAddColumn('company_settings', 'bank_name_2',                 'VARCHAR(255)',                   'bank_swift_code');
-    await safeAddColumn('company_settings', 'bank_account_title_2',        'VARCHAR(255)',                   'bank_name_2');
-    await safeAddColumn('company_settings', 'bank_account_number_2',       'VARCHAR(100)',                   'bank_account_title_2');
-    await safeAddColumn('company_settings', 'bank_branch_2',               'VARCHAR(255)',                   'bank_account_number_2');
-    await safeAddColumn('company_settings', 'bank_iban_2',                 'VARCHAR(100)',                   'bank_branch_2');
-    await safeAddColumn('company_settings', 'company_logo_url',            'TEXT',                           'bank_iban_2');
-    await safeAddColumn('company_settings', 'company_slogan',              'VARCHAR(255)',                   'company_logo_url');
-    await safeAddColumn('company_settings', 'invoice_header_text',         'TEXT',                           'company_slogan');
-    await safeAddColumn('company_settings', 'invoice_footer_text',         'TEXT',                           'invoice_header_text');
-    await safeAddColumn('company_settings', 'currency_symbol',             "VARCHAR(10) DEFAULT 'Rs.'",     'invoice_footer_text');
-    await safeAddColumn('company_settings', 'currency_code',               "VARCHAR(5) DEFAULT 'PKR'",      'currency_symbol');
-    await safeAddColumn('company_settings', 'default_tax_percentage',      'DECIMAL(5,2) DEFAULT 0.00',     'currency_code');
-    await safeAddColumn('company_settings', 'default_credit_days',         'INT DEFAULT 30',                'default_tax_percentage');
 
     console.log('✅ Auto-migrations completed successfully');
   } catch (error) {

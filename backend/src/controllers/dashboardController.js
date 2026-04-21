@@ -67,7 +67,7 @@ exports.getDashboardStats = async (req, res) => {
         SELECT 
           COUNT(*) as total_orders,
           SUM(CASE WHEN status IN ('placed', 'pending', 'processing') THEN 1 ELSE 0 END) as pending_orders,
-          SUM(CASE WHEN status IN ('completed', 'delivered') THEN 1 ELSE 0 END) as completed_orders,
+          SUM(CASE WHEN status IN ('finalized', 'delivered') THEN 1 ELSE 0 END) as completed_orders,
           SUM(net_amount) as total_order_value
         FROM orders
       `);
@@ -250,11 +250,11 @@ exports.getDashboardStats = async (req, res) => {
     // And Stock Returns status is 'processed' not 'approved'.
     const pnlQuery = `
       SELECT 
-        COALESCE(SUM(od.quantity * od.unit_price), 0) AS total_gross_revenue,
+        COALESCE(SUM(od.net_price), 0) AS total_gross_revenue,
         COALESCE(SUM(od.quantity * od.unit_purchase_cost), 0) AS total_cogs
       FROM orders o
       JOIN ${ORDER_DETAILS_TABLE} od ON o.id = od.order_id
-      WHERE o.status IN ('delivered', 'completed') AND ${oWhere}
+      WHERE o.status IN ('delivered', 'finalized') AND ${oWhere}
     `;
 
     const srQuery = `

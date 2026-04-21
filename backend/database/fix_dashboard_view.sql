@@ -25,7 +25,7 @@ SELECT
   -- Orders (THIS WAS MISSING!)
   (SELECT COUNT(*) FROM orders) AS total_orders,
   (SELECT COUNT(*) FROM orders WHERE status IN ('placed', 'pending', 'processing')) AS pending_orders,
-  (SELECT COUNT(*) FROM orders WHERE status IN ('completed', 'delivered')) AS completed_orders,
+  (SELECT COUNT(*) FROM orders WHERE status IN ('finalized', 'delivered')) AS completed_orders,
   
   -- Routes
   (SELECT COUNT(*) FROM routes) AS total_routes,

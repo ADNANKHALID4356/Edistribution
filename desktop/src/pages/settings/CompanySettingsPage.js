@@ -9,7 +9,7 @@ const CompanySettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  
+
   const [formData, setFormData] = useState({
     // Basic Information
     company_name: '',
@@ -18,19 +18,19 @@ const CompanySettingsPage = () => {
     company_state: '',
     company_country: 'Pakistan',
     company_postal_code: '',
-    
+
     // Contact Information
     company_phone: '',
     company_mobile: '',
     company_email: '',
     company_website: '',
-    
+
     // Legal & Tax Information
     company_tax_number: '',
     company_registration_number: '',
     company_ntn: '',
     company_gst_number: '',
-    
+
     // Bank Details - Primary Account
     bank_name: '',
     bank_account_title: '',
@@ -38,20 +38,20 @@ const CompanySettingsPage = () => {
     bank_branch: '',
     bank_iban: '',
     bank_swift_code: '',
-    
+
     // Bank Details - Secondary Account (Optional)
     bank_name_2: '',
     bank_account_title_2: '',
     bank_account_number_2: '',
     bank_branch_2: '',
     bank_iban_2: '',
-    
+
     // Branding
     company_logo_url: '',
     company_slogan: '',
     invoice_header_text: '',
     invoice_footer_text: '',
-    
+
     // Business Settings
     currency_symbol: 'Rs.',
     currency_code: 'PKR',
@@ -82,7 +82,7 @@ const CompanySettingsPage = () => {
     try {
       setLoading(true);
       const response = await settingsService.getCompanySettings();
-      
+
       if (response.success) {
         // Merge sanitized server data over the default form shape so any
         // new fields the server doesn't return yet still get empty strings.
@@ -95,8 +95,7 @@ const CompanySettingsPage = () => {
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
-      const backendMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Error loading settings';
-      setMessage({ type: 'error', text: backendMsg });
+      setMessage({ type: 'error', text: error.message || 'Error loading settings' });
     } finally {
       setLoading(false);
     }
@@ -112,7 +111,7 @@ const CompanySettingsPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate required fields
     if (!formData.company_name) {
       setMessage({ type: 'error', text: 'Company name is required' });
@@ -122,16 +121,16 @@ const CompanySettingsPage = () => {
     try {
       setSaving(true);
       setMessage({ type: '', text: '' });
-      
+
       const response = await settingsService.updateCompanySettings(formData);
-      
+
       if (response.success) {
         setMessage({ type: 'success', text: 'Company settings saved successfully!' });
         setFormData(prev => ({
           ...prev,
           ...sanitizeSettings(response.data),
         }));
-        
+
         // Clear success message after 3 seconds
         setTimeout(() => {
           setMessage({ type: '', text: '' });
@@ -141,8 +140,7 @@ const CompanySettingsPage = () => {
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      const backendMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Error saving settings';
-      setMessage({ type: 'error', text: backendMsg });
+      setMessage({ type: 'error', text: error.message || 'Error saving settings' });
     } finally {
       setSaving(false);
     }
@@ -174,11 +172,10 @@ const CompanySettingsPage = () => {
 
       {/* Alert Messages */}
       {message.text && (
-        <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-          message.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-800' 
+        <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${message.type === 'success'
+            ? 'bg-green-50 border border-green-200 text-green-800'
             : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
+          }`}>
           {message.type === 'success' ? (
             <CheckCircle2 className="h-5 w-5" />
           ) : (
@@ -195,7 +192,7 @@ const CompanySettingsPage = () => {
             <Building2 className="h-5 w-5 text-blue-600" />
             Basic Information
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -286,7 +283,7 @@ const CompanySettingsPage = () => {
             <Phone className="h-5 w-5 text-blue-600" />
             Contact Information
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -352,7 +349,7 @@ const CompanySettingsPage = () => {
             <Globe className="h-5 w-5 text-blue-600" />
             Legal & Tax Information
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -414,7 +411,7 @@ const CompanySettingsPage = () => {
             <CreditCard className="h-5 w-5 text-blue-600" />
             Primary Bank Account
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -505,7 +502,7 @@ const CompanySettingsPage = () => {
             <CreditCard className="h-5 w-5 text-gray-500" />
             Secondary Bank Account <span className="text-sm text-gray-500 font-normal">(Optional)</span>
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -580,7 +577,7 @@ const CompanySettingsPage = () => {
             <MapPin className="h-5 w-5 text-blue-600" />
             Branding & Display
           </h2>
-          
+
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -646,7 +643,7 @@ const CompanySettingsPage = () => {
         {/* Business Settings */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Business Settings</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -718,7 +715,7 @@ const CompanySettingsPage = () => {
           >
             Reset
           </button>
-          
+
           <button
             type="submit"
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
