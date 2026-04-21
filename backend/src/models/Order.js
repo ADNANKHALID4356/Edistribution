@@ -265,64 +265,54 @@ const Order = {
       if (items && items.length > 0) {
         console.log(`\n🔍 [BACKEND MODEL] Preparing to insert ${items.length} order items...`);
         try {
-          // Use module-level useSQLite variable (declared at line 11)
+          // Fetch current purchase prices to establish accurate historic COGS
+          const productIds = items.map(item => item.product_id);
+          const [products] = await connection.query(
+            `SELECT id, purchase_price FROM products WHERE id IN (?)`,
+            [productIds]
+          );
+          const purchasePriceMap = {};
+          products.forEach(p => { purchasePriceMap[p.id] = parseFloat(p.purchase_price) || 0; });
           
           if (useSQLite) {
-            // SQLite: Insert items one by one (no batch VALUES ? support)
-            // SQLite schema: has discount_percentage, no net_price, no discount column
+            // SQLite: Insert items one by one
             console.log('🔍 [BACKEND MODEL] Using SQLite - inserting items individually');
             for (let i = 0; i < items.length; i++) {
               const item = items[i];
               console.log(`🔍 [BACKEND MODEL] Inserting Item ${i + 1}/${items.length}:`, JSON.stringify(item));
               
-              // Validate item
-              if (!item.product_id) {
-                throw new Error(`Item ${i + 1}: product_id is required`);
-              }
-              if (!item.quantity) {
-                throw new Error(`Item ${i + 1}: quantity is required`);
-              }
-              if (item.unit_price === undefined || item.unit_price === null) {
-                throw new Error(`Item ${i + 1}: unit_price is required`);
-              }
+              if (!item.product_id) throw new Error(`Item ${i + 1}: product_id is required`);
+              if (!item.quantity) throw new Error(`Item ${i + 1}: quantity is required`);
+              if (item.unit_price === undefined || item.unit_price === null) throw new Error(`Item ${i + 1}: unit_price is required`);
               
-              // Calculate discount_percentage from discount amount
-              const discount_percentage = item.discount && item.total_price > 0 
-                ? (item.discount / item.total_price) * 100 
-                : 0;
-              
+              const discountAmt = parseFloat(item.discount) || 0;
+              const discount_percentage = item.discount_percentage ? parseFloat(item.discount_percentage) : (discountAmt > 0 && item.total_price > 0 ? (discountAmt / item.total_price) * 100 : 0);
+              const unit_purchase_cost = purchasePriceMap[item.product_id] || 0;
+              const net_price = item.net_price || item.total_price;
+
               await connection.query(
                 `INSERT INTO ${ORDER_DETAILS_TABLE} 
-                 (order_id, product_id, quantity, unit_price, total_price, discount_percentage)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [orderId, item.product_id, item.quantity, item.unit_price, item.total_price, discount_percentage]
+                 (order_id, product_id, quantity, unit_price, total_price, discount, discount_percentage, net_price, unit_purchase_cost)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [orderId, item.product_id, item.quantity, item.unit_price, item.total_price, discountAmt, discount_percentage, net_price, unit_purchase_cost]
               );
             }
             console.log('✅ [BACKEND MODEL] All order items inserted successfully (SQLite)');
           } else {
             // MySQL: Batch insert with VALUES ?
-            // MySQL schema: has discount, discount_percentage, and net_price columns
             console.log('🔍 [BACKEND MODEL] Using MySQL - batch inserting items');
             const detailValues = items.map((item, index) => {
               console.log(`🔍 [BACKEND MODEL] Validating Item ${index + 1}:`, JSON.stringify(item));
               
-              // Validate item
-              if (!item.product_id) {
-                throw new Error(`Item ${index + 1}: product_id is required`);
-              }
-              if (!item.quantity) {
-                throw new Error(`Item ${index + 1}: quantity is required`);
-              }
-              if (item.unit_price === undefined || item.unit_price === null) {
-                throw new Error(`Item ${index + 1}: unit_price is required`);
-              }
+              if (!item.product_id) throw new Error(`Item ${index + 1}: product_id is required`);
+              if (!item.quantity) throw new Error(`Item ${index + 1}: quantity is required`);
+              if (item.unit_price === undefined || item.unit_price === null) throw new Error(`Item ${index + 1}: unit_price is required`);
               
-              // Calculate discount_percentage from discount amount
               const discountAmt = parseFloat(item.discount) || 0;
-              const discount_percentage = item.discount_percentage 
-                ? parseFloat(item.discount_percentage) 
-                : (discountAmt > 0 && item.total_price > 0 ? (discountAmt / item.total_price) * 100 : 0);
-              
+              const discount_percentage = item.discount_percentage ? parseFloat(item.discount_percentage) : (discountAmt > 0 && item.total_price > 0 ? (discountAmt / item.total_price) * 100 : 0);
+              const unit_purchase_cost = purchasePriceMap[item.product_id] || 0;
+              const net_price = item.net_price || item.total_price;
+
               return [
                 orderId,
                 item.product_id,
@@ -331,7 +321,8 @@ const Order = {
                 item.total_price,
                 discountAmt,
                 discount_percentage,
-                item.net_price
+                net_price,
+                unit_purchase_cost
               ];
             });
             

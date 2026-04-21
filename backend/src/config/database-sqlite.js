@@ -810,6 +810,9 @@ function initializeDatabase() {
       unit_price REAL NOT NULL,
       discount_percentage REAL DEFAULT 0,
       total_price REAL NOT NULL,
+      discount REAL DEFAULT 0,
+      net_price REAL NOT NULL DEFAULT 0,
+      unit_purchase_cost REAL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
       FOREIGN KEY (product_id) REFERENCES products(id)
@@ -1161,6 +1164,25 @@ function initializeDatabase() {
   // Check if admin user exists, if not create default admin
   const adminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE role_id = ?').get(1);
   
+  function migrateOrderItemsTableSchema() {
+    console.log('🔄 Checking order_items table schema...');
+    const orderItemColumns = [
+      ['discount', 'REAL DEFAULT 0'],
+      ['net_price', 'REAL DEFAULT 0'],
+      ['unit_purchase_cost', 'REAL DEFAULT 0']
+    ];
+    let columnsAdded = 0;
+    for (const [colName, colDef] of orderItemColumns) {
+      if (safeAddColumn('order_items', colName, colDef)) {
+        columnsAdded++;
+      }
+    }
+    if (columnsAdded > 0) {
+      console.log(`✅ Order Items schema migrated - added ${columnsAdded} columns`);
+    }
+  }
+  migrateOrderItemsTableSchema();
+
   if (adminExists.count === 0) {
     console.log('👤 Creating default admin user...');
     const bcrypt = require('bcryptjs');

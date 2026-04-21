@@ -261,7 +261,7 @@ exports.getDashboardStats = async (req, res) => {
       SELECT 
         COALESCE(SUM(sr.total_return_amount), 0) AS total_return_revenue
       FROM stock_returns sr
-      WHERE sr.status = 'processed' AND ${srWhere}
+      WHERE sr.status = 'completed' AND ${srWhere}
     `;
 
     try {
