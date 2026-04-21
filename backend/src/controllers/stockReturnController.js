@@ -18,21 +18,31 @@ const processReturn = async (req, res) => {
     }
 
     // Normalize field names: accept both return_quantity and quantity_returned
-    const normalizedItems = items.map(item => ({
-      delivery_item_id: item.delivery_item_id,
-      product_id: item.product_id,
-      quantity_returned: item.quantity_returned || item.return_quantity || 0,
-      return_amount: item.return_amount || null,
-      reason: item.reason || null,
-      condition_status: item.condition_status || 'good',
-      notes: item.notes || null,
-    }));
+    const normalizedItems = items.map((item) => {
+      const rawDi = item.delivery_item_id;
+      const delivery_item_id =
+        rawDi === undefined || rawDi === null || rawDi === ''
+          ? NaN
+          : Number(rawDi);
+      return {
+        delivery_item_id,
+        product_id: item.product_id != null ? Number(item.product_id) : item.product_id,
+        quantity_returned: item.quantity_returned || item.return_quantity || 0,
+        return_amount: item.return_amount || null,
+        reason: item.reason || null,
+        condition_status: item.condition_status || 'good',
+        notes: item.notes || null,
+      };
+    });
 
-    const validItems = normalizedItems.filter(i => i.quantity_returned > 0);
+    const validItems = normalizedItems.filter(
+      (i) => i.quantity_returned > 0 && Number.isFinite(i.delivery_item_id)
+    );
     if (validItems.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'At least one item must have a return quantity greater than 0'
+        message:
+          'At least one item must have a return quantity greater than 0 and a valid delivery_item_id',
       });
     }
 
@@ -99,10 +109,36 @@ const getReturnStatistics = async (req, res) => {
   }
 };
 
+// Void (delete) a stock return and reverse all side effects
+const voidReturn = async (req, res) => {
+  try {
+    const result = await StockReturn.voidReturn(req.params.id, req.user?.id, {
+      notes: req.body?.notes || null,
+    });
+    res.json({
+      success: true,
+      message: 'Stock return voided successfully',
+      data: result,
+    });
+  } catch (error) {
+    console.error('❌ voidReturn error:', error);
+    const msg = error.message || 'Failed to void stock return';
+    if (msg === 'Stock return not found') {
+      return res.status(404).json({ success: false, message: msg });
+    }
+    const isClient =
+      /Invalid stock return id|Cannot void|missing delivery_item|not found|less than|no warehouse_stock|insufficient/i.test(
+        msg
+      );
+    res.status(isClient ? 400 : 500).json({ success: false, message: msg });
+  }
+};
+
 module.exports = {
   processReturn,
   getReturnById,
   getAllReturns,
   getReturnsByDelivery,
-  getReturnStatistics
+  getReturnStatistics,
+  voidReturn,
 };

@@ -22,6 +22,9 @@ router.get('/statistics', authorize('Admin', 'Manager'), controller.getReturnSta
 // Get returns by delivery
 router.get('/delivery/:deliveryId', authorize('Admin', 'Manager'), controller.getReturnsByDelivery);
 
+// Void (delete) a return — same roles as creating a return
+router.delete('/:id', authorize('Admin', 'Manager'), controller.voidReturn);
+
 // Get return by ID
 router.get('/:id', authorize('Admin', 'Manager'), controller.getReturnById);
 

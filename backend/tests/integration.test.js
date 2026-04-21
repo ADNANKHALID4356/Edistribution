@@ -149,6 +149,13 @@ describe('Stock Returns API (Feature 2)', () => {
     expect(status).toBe(200);
     expect(data.success).toBe(true);
   });
+
+  test('[POST-DEPLOY] DELETE /desktop/stock-returns/:id missing return should return 404', async () => {
+    const { status, data } = await apiRequest('DELETE', '/desktop/stock-returns/999999999');
+    if (status === 404 && data.message === undefined) { console.log('  ⏳ Endpoint not yet deployed'); return; }
+    expect(status).toBe(404);
+    expect(data.success).toBe(false);
+  });
 });
 
 // ============================

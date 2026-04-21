@@ -12,6 +12,7 @@ import {
   ChevronUpIcon,
   CheckCircleIcon,
   XCircleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
 const StockReturnsPage = () => {
@@ -39,6 +40,10 @@ const StockReturnsPage = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [expandedReturn, setExpandedReturn] = useState(null);
 
+  // Void (delete) return confirmation
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [voiding, setVoiding] = useState(false);
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
@@ -47,7 +52,10 @@ const StockReturnsPage = () => {
     setLoading(true);
     try {
       const params = {};
-      if (dateFilter) params.date = dateFilter;
+      if (dateFilter) {
+        params.start_date = `${dateFilter} 00:00:00`;
+        params.end_date = `${dateFilter} 23:59:59`;
+      }
 
       const [returnsRes, statsRes] = await Promise.all([
         stockReturnService.getAllReturns(params),
@@ -259,7 +267,26 @@ const StockReturnsPage = () => {
       setSelectedReturn(response.data);
       setShowDetailModal(true);
     } catch (err) {
-      setError('Failed to load return details');
+      setError(err.message || 'Failed to load return details');
+    }
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!deleteTarget) return;
+    const { id, return_number: returnNumber } = deleteTarget;
+    setVoiding(true);
+    setError('');
+    try {
+      await stockReturnService.voidReturn(id);
+      setDeleteTarget(null);
+      setShowDetailModal(false);
+      setSelectedReturn(null);
+      setSuccess(`Return ${returnNumber} voided. Stock and shop balance were reversed.`);
+      await fetchReturns();
+    } catch (err) {
+      setError(err.message || 'Failed to void return');
+    } finally {
+      setVoiding(false);
     }
   };
 
@@ -435,6 +462,17 @@ const StockReturnsPage = () => {
                                 title="View Details"
                               >
                                 <EyeIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget({ id: ret.id, return_number: ret.return_number });
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-red-600"
+                                title="Void return (reverse stock)"
+                              >
+                                <TrashIcon className="h-4 w-4" />
                               </button>
                               {expandedReturn === ret.id ? (
                                 <ChevronUpIcon className="h-4 w-4 text-gray-400" />
@@ -789,6 +827,73 @@ const StockReturnsPage = () => {
                     <p className="text-gray-700">{selectedReturn.notes}</p>
                   </div>
                 )}
+
+                <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDeleteTarget({
+                        id: selectedReturn.id,
+                        return_number: selectedReturn.return_number,
+                      })
+                    }
+                    className="px-4 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-sm font-medium flex items-center gap-2"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                    Void this return
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {deleteTarget && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+            onClick={() => !voiding && setDeleteTarget(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-gray-900">Void stock return?</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                This will permanently remove{' '}
+                <span className="font-semibold text-gray-800">{deleteTarget.return_number}</span> from
+                history and <span className="font-semibold">reverse</span> warehouse stock, product
+                stock, delivery quantities, and shop ledger for this return.
+              </p>
+              <p className="mt-2 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                Void fails if stock was already sold or changed so the reversal would go negative.
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={voiding}
+                  onClick={() => setDeleteTarget(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={voiding}
+                  onClick={handleConfirmVoid}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {voiding ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      Voiding…
+                    </>
+                  ) : (
+                    <>
+                      <TrashIcon className="h-4 w-4" />
+                      Void return
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

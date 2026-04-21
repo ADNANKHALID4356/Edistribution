@@ -7,6 +7,13 @@
 const db = require('../config/database');
 
 class StockReturn {
+  /** Match delivery line id regardless of number/string from JSON or MySQL driver */
+  static _findDeliveryItem(deliveryItems, deliveryItemId) {
+    const idNum = Number(deliveryItemId);
+    if (Number.isNaN(idNum)) return undefined;
+    return deliveryItems.find((di) => Number(di.id) === idNum);
+  }
+
   /**
    * Generate unique return number
    */
@@ -72,7 +79,7 @@ class StockReturn {
       for (const returnItem of returnItems) {
         if (returnItem.quantity_returned <= 0) continue;
 
-        const deliveryItem = deliveryItems.find(di => di.id === returnItem.delivery_item_id);
+        const deliveryItem = StockReturn._findDeliveryItem(deliveryItems, returnItem.delivery_item_id);
         if (!deliveryItem) {
           throw new Error(`Delivery item ID ${returnItem.delivery_item_id} not found`);
         }
@@ -97,7 +104,13 @@ class StockReturn {
       const totalItems = validItems.length;
       const totalQuantityReturned = validItems.reduce((sum, i) => sum + parseInt(i.quantity_returned), 0);
       const totalReturnAmount = validItems.reduce((sum, i) => {
-        const itemVal = i.return_amount !== undefined ? parseFloat(i.return_amount) : 0;
+        const deliveryItem = StockReturn._findDeliveryItem(deliveryItems, i.delivery_item_id);
+        const unitPrice = deliveryItem ? parseFloat(deliveryItem.unit_price) : 0;
+        const itemVal = i.quantity_returned * unitPrice;
+        
+        // Also update the item array object so that we insert the strict computed value later
+        i.calculated_return_amount = itemVal; 
+        
         return sum + itemVal;
       }, 0);
 
@@ -145,7 +158,8 @@ class StockReturn {
 
       // 7. Insert return items and update stock
       for (const returnItem of validItems) {
-        const deliveryItem = deliveryItems.find(di => di.id === returnItem.delivery_item_id);
+        const deliveryItem = StockReturn._findDeliveryItem(deliveryItems, returnItem.delivery_item_id);
+        const deliveryItemId = Number(returnItem.delivery_item_id);
 
         // Insert return item
         await connection.query(`
@@ -156,14 +170,17 @@ class StockReturn {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           returnId,
-          returnItem.delivery_item_id,
+          deliveryItemId,
           deliveryItem.product_id,
           deliveryItem.product_name,
           deliveryItem.product_code,
           deliveryItem.quantity_delivered,
           returnItem.quantity_returned,
           deliveryItem.unit_price,
-            returnItem.return_amount !== undefined ? returnItem.return_amount : (returnItem.quantity_returned * parseFloat(deliveryItem.unit_price)),
+          returnItem.calculated_return_amount,
+          returnItem.reason || returnData.reason || null,
+          returnItem.condition_status || 'good',
+          returnItem.notes || null
         ]);
 
         // 8. Update delivery_items quantity_returned
@@ -171,14 +188,20 @@ class StockReturn {
           UPDATE delivery_items
           SET quantity_returned = quantity_returned + ?
           WHERE id = ?
-        `, [returnItem.quantity_returned, returnItem.delivery_item_id]);
+        `, [returnItem.quantity_returned, deliveryItemId]);
 
-        // 9. Re-add stock to warehouse
-        await connection.query(`
+        // 9. Re-add stock to warehouse (insert row if missing)
+        const [wsUpdate] = await connection.query(`
           UPDATE warehouse_stock
           SET quantity = quantity + ?
           WHERE warehouse_id = ? AND product_id = ?
         `, [returnItem.quantity_returned, delivery.warehouse_id, deliveryItem.product_id]);
+        if (!wsUpdate.affectedRows) {
+          await connection.query(`
+            INSERT INTO warehouse_stock (warehouse_id, product_id, quantity, created_by)
+            VALUES (?, ?, ?, ?)
+          `, [delivery.warehouse_id, deliveryItem.product_id, returnItem.quantity_returned, userId || null]);
+        }
 
         // 10. Update product main stock_quantity
         await connection.query(`
@@ -297,6 +320,171 @@ class StockReturn {
     } catch (error) {
       await connection.rollback();
       console.error('❌ Error processing stock return:', error);
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * Void a stock return: reverse inventory, delivery lines, delivery totals,
+   * post compensating shop ledger (credit), remove movements, delete return rows.
+   */
+  static async voidReturn(returnId, userId, options = {}) {
+    const connection = await db.getConnection();
+    const id = Number(returnId);
+    if (!id || Number.isNaN(id)) {
+      connection.release();
+      throw new Error('Invalid stock return id');
+    }
+
+    try {
+      await connection.beginTransaction();
+
+      const [returns] = await connection.query('SELECT * FROM stock_returns WHERE id = ?', [id]);
+      if (returns.length === 0) {
+        throw new Error('Stock return not found');
+      }
+      const hdr = returns[0];
+
+      const [items] = await connection.query(
+        'SELECT * FROM stock_return_items WHERE return_id = ? ORDER BY id',
+        [id]
+      );
+      if (items.length === 0) {
+        throw new Error('Return has no line items');
+      }
+
+      const [deliveries] = await connection.query('SELECT * FROM deliveries WHERE id = ?', [
+        hdr.delivery_id,
+      ]);
+      if (deliveries.length === 0) {
+        throw new Error('Linked delivery not found');
+      }
+      const delivery = deliveries[0];
+
+      for (const line of items) {
+        const qty = parseInt(line.quantity_returned, 10) || 0;
+        if (qty <= 0) continue;
+
+        const diId = line.delivery_item_id != null ? Number(line.delivery_item_id) : null;
+        if (diId == null || Number.isNaN(diId)) {
+          throw new Error('Return line is missing delivery_item_id; cannot void safely');
+        }
+
+        const [diRows] = await connection.query('SELECT * FROM delivery_items WHERE id = ?', [diId]);
+        if (diRows.length === 0) {
+          throw new Error(`Delivery item ${diId} not found`);
+        }
+        const di = diRows[0];
+        const curReturned = parseInt(di.quantity_returned, 10) || 0;
+        if (curReturned < qty) {
+          throw new Error(
+            `Cannot void return: line ${diId} has quantity_returned ${curReturned}, less than ${qty}`
+          );
+        }
+
+        const [diUpd] = await connection.query(
+          `UPDATE delivery_items
+           SET quantity_returned = quantity_returned - ?
+           WHERE id = ? AND quantity_returned >= ?`,
+          [qty, diId, qty]
+        );
+        if (!diUpd.affectedRows) {
+          throw new Error(`Failed to reverse quantity_returned for delivery item ${diId}`);
+        }
+
+        const [wsRows] = await connection.query(
+          'SELECT quantity FROM warehouse_stock WHERE warehouse_id = ? AND product_id = ?',
+          [delivery.warehouse_id, line.product_id]
+        );
+        if (wsRows.length === 0) {
+          throw new Error(
+            `Cannot void: no warehouse_stock row for product ${line.product_id} in this warehouse`
+          );
+        }
+        const whQty = parseInt(wsRows[0].quantity, 10) || 0;
+        if (whQty < qty) {
+          throw new Error(
+            `Cannot void: warehouse only has ${whQty} of product ${line.product_id}; need ${qty}`
+          );
+        }
+        await connection.query(
+          `UPDATE warehouse_stock SET quantity = quantity - ?
+           WHERE warehouse_id = ? AND product_id = ?`,
+          [qty, delivery.warehouse_id, line.product_id]
+        );
+
+        const [pRows] = await connection.query('SELECT stock_quantity FROM products WHERE id = ?', [
+          line.product_id,
+        ]);
+        const stockQty = parseInt(pRows[0]?.stock_quantity, 10) || 0;
+        if (stockQty < qty) {
+          throw new Error(
+            `Cannot void: product ${line.product_name || line.product_id} stock is ${stockQty}; need ${qty}`
+          );
+        }
+        await connection.query(
+          'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
+          [qty, line.product_id]
+        );
+      }
+
+      const [updatedItems] = await connection.query(
+        'SELECT * FROM delivery_items WHERE delivery_id = ?',
+        [hdr.delivery_id]
+      );
+      const newTotalQuantity = updatedItems.reduce(
+        (sum, i) => sum + (parseInt(i.quantity_delivered, 10) - parseInt(i.quantity_returned || 0, 10)),
+        0
+      );
+      const newTotalAmount = updatedItems.reduce((sum, i) => {
+        const effectiveQty =
+          parseInt(i.quantity_delivered, 10) - parseInt(i.quantity_returned || 0, 10);
+        return sum + effectiveQty * parseFloat(i.unit_price);
+      }, 0);
+
+      await connection.query(
+        `UPDATE deliveries
+         SET total_quantity = ?, total_amount = ?, grand_total = ?
+         WHERE id = ?`,
+        [newTotalQuantity, newTotalAmount, newTotalAmount, hdr.delivery_id]
+      );
+
+      const ShopLedger = require('./ShopLedger');
+      const totalAmt = parseFloat(hdr.total_return_amount) || 0;
+      const mysqlDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      await ShopLedger.createEntry(
+        {
+          shop_id: hdr.shop_id,
+          shop_name: hdr.shop_name,
+          transaction_date: mysqlDate,
+          transaction_type: 'return_void',
+          reference_type: 'stock_return_void',
+          reference_id: id,
+          reference_number: hdr.return_number,
+          debit_amount: 0,
+          credit_amount: totalAmt,
+          description: `Voided stock return ${hdr.return_number} (restores shop balance)`,
+          notes: options.notes || null,
+          created_by: userId,
+          is_manual: 0,
+        },
+        connection
+      );
+
+      await connection.query(
+        `DELETE FROM stock_movements WHERE reference_type = 'stock_return' AND reference_id = ?`,
+        [id]
+      );
+
+      await connection.query('DELETE FROM stock_returns WHERE id = ?', [id]);
+
+      await connection.commit();
+      return { voided: true, return_number: hdr.return_number };
+    } catch (error) {
+      await connection.rollback();
+      console.error('❌ Error voiding stock return:', error);
       throw error;
     } finally {
       connection.release();
