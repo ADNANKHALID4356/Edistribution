@@ -15,6 +15,32 @@ class StockReturn {
   }
 
   /**
+   * Line net value as stored on the challan (after line discount). Falls back to total_price or gross.
+   */
+  static _lineNetBaseline(item) {
+    const net = parseFloat(item.net_amount);
+    if (Number.isFinite(net) && net !== 0) return net;
+    const tp = parseFloat(item.total_price);
+    if (Number.isFinite(tp) && tp !== 0) return tp;
+    const del = parseFloat(item.quantity_delivered) || 0;
+    return del * (parseFloat(item.unit_price) || 0);
+  }
+
+  /**
+   * Sum of net value still “kept” by the customer (delivered minus returned), proportional per line.
+   */
+  static _remainingLineValueSum(items) {
+    return items.reduce((sum, i) => {
+      const del = parseFloat(i.quantity_delivered) || 0;
+      if (del <= 0) return sum;
+      const ret = parseFloat(i.quantity_returned) || 0;
+      const eff = Math.max(del - ret, 0);
+      const net = StockReturn._lineNetBaseline(i);
+      return sum + net * (eff / del);
+    }, 0);
+  }
+
+  /**
    * Generate unique return number
    */
   static async generateReturnNumber() {
@@ -99,18 +125,20 @@ class StockReturn {
       const returnNumber = await StockReturn.generateReturnNumber();
       console.log('📋 Generated return number:', returnNumber);
 
-      // 5. Calculate totals
+      const prevRemLineValue = StockReturn._remainingLineValueSum(deliveryItems);
+
+      // 5. Calculate totals (return $ = share of line net_amount, not raw unit_price × qty)
       const validItems = returnItems.filter(i => i.quantity_returned > 0);
       const totalItems = validItems.length;
       const totalQuantityReturned = validItems.reduce((sum, i) => sum + parseInt(i.quantity_returned), 0);
       const totalReturnAmount = validItems.reduce((sum, i) => {
         const deliveryItem = StockReturn._findDeliveryItem(deliveryItems, i.delivery_item_id);
-        const unitPrice = deliveryItem ? parseFloat(deliveryItem.unit_price) : 0;
-        const itemVal = i.quantity_returned * unitPrice;
-        
-        // Also update the item array object so that we insert the strict computed value later
-        i.calculated_return_amount = itemVal; 
-        
+        if (!deliveryItem) return sum;
+        const del = parseFloat(deliveryItem.quantity_delivered) || 0;
+        const lineNet = StockReturn._lineNetBaseline(deliveryItem);
+        const itemVal =
+          del > 0 ? (parseFloat(i.quantity_returned) / del) * lineNet : 0;
+        i.calculated_return_amount = itemVal;
         return sum + itemVal;
       }, 0);
 
@@ -230,83 +258,95 @@ class StockReturn {
         console.log(`   ✅ Returned ${returnItem.quantity_returned}x ${deliveryItem.product_name} → warehouse stock updated`);
       }
 
-      // 12. Update delivery totals
+      // 12. Update delivery totals — scale header money fields by kept-value ratio so
+      // subtotal / discount / tax / grand_total stay aligned (avoids gross unit_price errors).
       const [updatedItems] = await connection.query(
         'SELECT * FROM delivery_items WHERE delivery_id = ?',
         [returnData.delivery_id]
       );
 
-      const newTotalQuantity = updatedItems.reduce((sum, i) => sum + (parseInt(i.quantity_delivered) - parseInt(i.quantity_returned || 0)), 0);
-      const newTotalAmount = updatedItems.reduce((sum, i) => {
-        const effectiveQty = parseInt(i.quantity_delivered) - parseInt(i.quantity_returned || 0);
-        return sum + (effectiveQty * parseFloat(i.unit_price));
-      }, 0);
+      const newTotalQuantity = updatedItems.reduce(
+        (sum, i) => sum + (parseInt(i.quantity_delivered) - parseInt(i.quantity_returned || 0)),
+        0
+      );
+      const newRemLineValue = StockReturn._remainingLineValueSum(updatedItems);
+      let scale =
+        prevRemLineValue > 0 ? newRemLineValue / prevRemLineValue : newRemLineValue > 0 ? 1 : 0;
 
-      await connection.query(`
+      const newSubtotal = (parseFloat(delivery.subtotal) || 0) * scale;
+      const newDiscountAmount = (parseFloat(delivery.discount_amount) || 0) * scale;
+      const newTaxAmount = (parseFloat(delivery.tax_amount) || 0) * scale;
+      const newShipping = (parseFloat(delivery.shipping_charges) || 0) * scale;
+      const newOther = (parseFloat(delivery.other_charges) || 0) * scale;
+      const newRoundOff = (parseFloat(delivery.round_off) || 0) * scale;
+      let newTotalAmount = (parseFloat(delivery.total_amount) || 0) * scale;
+      let newGrandTotal = (parseFloat(delivery.grand_total) || 0) * scale;
+
+      const recomputedGrand =
+        newSubtotal -
+        newDiscountAmount +
+        newTaxAmount +
+        newShipping +
+        newOther +
+        newRoundOff;
+      if (
+        Number.isFinite(recomputedGrand) &&
+        Math.abs(recomputedGrand - newGrandTotal) > 0.02
+      ) {
+        newGrandTotal = recomputedGrand;
+      }
+      if (!(newTotalAmount > 0) && newRemLineValue > 0) {
+        newTotalAmount = newRemLineValue;
+      }
+
+      await connection.query(
+        `
         UPDATE deliveries
-        SET total_quantity = ?, total_amount = ?, grand_total = ?
+        SET total_quantity = ?,
+            total_amount = ?,
+            grand_total = ?,
+            subtotal = ?,
+            discount_amount = ?,
+            tax_amount = ?,
+            shipping_charges = ?,
+            other_charges = ?,
+            round_off = ?
         WHERE id = ?
-      `, [newTotalQuantity, newTotalAmount, newTotalAmount, returnData.delivery_id]);
+      `,
+        [
+          newTotalQuantity,
+          newTotalAmount,
+          newGrandTotal,
+          newSubtotal,
+          newDiscountAmount,
+          newTaxAmount,
+          newShipping,
+          newOther,
+          newRoundOff,
+          returnData.delivery_id,
+        ]
+      );
 
-      // 13. Create reverse ledger entry (credit to reduce shop debt)
+      // 13. Ledger: debit reduces shop debt (see ShopLedger balance = prev + credit - debit)
       const ShopLedger = require('./ShopLedger');
-      await ShopLedger.createEntry({
-        shop_id: delivery.shop_id,
-        shop_name: delivery.shop_name,
-        transaction_date: mysqlDate,
-        transaction_type: 'return',
-        reference_type: 'stock_return',
-        reference_id: returnId,
-        reference_number: returnNumber,
-        debit_amount: 0,
-        credit_amount: 0,
-        description: `Stock Return ${returnNumber} - ${totalQuantityReturned} items returned from ${delivery.challan_number}`,
-        notes: returnData.reason || 'Partial delivery return',
-        created_by: userId,
-        is_manual: 0
-      }, connection);
-
-      // Reduce shop balance by return amount
-      const [prevEntries] = await connection.query(`
-        SELECT balance FROM shop_ledger
-        WHERE shop_id = ?
-        ORDER BY id DESC
-        LIMIT 1
-      `, [delivery.shop_id]);
-
-      const previousBalance = prevEntries.length > 0 ? parseFloat(prevEntries[0].balance) : 0;
-      const newBalance = previousBalance - totalReturnAmount;
-
-      // Update ledger entry we just created with correct amounts
-      await connection.query(`
-        UPDATE shop_ledger
-        SET debit_amount = 0, credit_amount = 0, balance = ?
-        WHERE reference_type = 'stock_return' AND reference_id = ?
-        ORDER BY id DESC LIMIT 1
-      `, [newBalance, returnId]);
-
-      // Actually create a proper debit entry (reduces shop's debt)
-      // Delete the placeholder and create correct one
-      await connection.query(`
-        DELETE FROM shop_ledger
-        WHERE reference_type = 'stock_return' AND reference_id = ?
-      `, [returnId]);
-
-      await ShopLedger.createEntry({
-        shop_id: delivery.shop_id,
-        shop_name: delivery.shop_name,
-        transaction_date: mysqlDate,
-        transaction_type: 'return',
-        reference_type: 'stock_return',
-        reference_id: returnId,
-        reference_number: returnNumber,
-        debit_amount: totalReturnAmount, // Debit = reduces shop debt
-        credit_amount: 0,
-        description: `Stock Return ${returnNumber} - ${totalQuantityReturned} items returned from delivery ${delivery.challan_number}`,
-        notes: returnData.reason || 'Partial delivery return',
-        created_by: userId,
-        is_manual: 0
-      }, connection);
+      await ShopLedger.createEntry(
+        {
+          shop_id: delivery.shop_id,
+          shop_name: delivery.shop_name,
+          transaction_date: mysqlDate,
+          transaction_type: 'return',
+          reference_type: 'stock_return',
+          reference_id: returnId,
+          reference_number: returnNumber,
+          debit_amount: totalReturnAmount,
+          credit_amount: 0,
+          description: `Stock Return ${returnNumber} - ${totalQuantityReturned} units from delivery ${delivery.challan_number}`,
+          notes: returnData.reason || 'Partial delivery return',
+          created_by: userId,
+          is_manual: 0,
+        },
+        connection
+      );
 
       await connection.commit();
 
@@ -362,6 +402,12 @@ class StockReturn {
         throw new Error('Linked delivery not found');
       }
       const delivery = deliveries[0];
+
+      const [itemsBeforeVoid] = await connection.query(
+        'SELECT * FROM delivery_items WHERE delivery_id = ?',
+        [hdr.delivery_id]
+      );
+      const prevRemLineValue = StockReturn._remainingLineValueSum(itemsBeforeVoid);
 
       for (const line of items) {
         const qty = parseInt(line.quantity_returned, 10) || 0;
@@ -438,17 +484,67 @@ class StockReturn {
         (sum, i) => sum + (parseInt(i.quantity_delivered, 10) - parseInt(i.quantity_returned || 0, 10)),
         0
       );
-      const newTotalAmount = updatedItems.reduce((sum, i) => {
-        const effectiveQty =
-          parseInt(i.quantity_delivered, 10) - parseInt(i.quantity_returned || 0, 10);
-        return sum + effectiveQty * parseFloat(i.unit_price);
-      }, 0);
+      const newRemLineValue = StockReturn._remainingLineValueSum(updatedItems);
+      let scale =
+        prevRemLineValue > 0 ? newRemLineValue / prevRemLineValue : newRemLineValue > 0 ? 1 : 0;
+
+      let newSubtotal = (parseFloat(delivery.subtotal) || 0) * scale;
+      let newDiscountAmount = (parseFloat(delivery.discount_amount) || 0) * scale;
+      let newTaxAmount = (parseFloat(delivery.tax_amount) || 0) * scale;
+      let newShipping = (parseFloat(delivery.shipping_charges) || 0) * scale;
+      let newOther = (parseFloat(delivery.other_charges) || 0) * scale;
+      let newRoundOff = (parseFloat(delivery.round_off) || 0) * scale;
+      let newTotalAmount = (parseFloat(delivery.total_amount) || 0) * scale;
+      let newGrandTotal = (parseFloat(delivery.grand_total) || 0) * scale;
+
+      if (!(prevRemLineValue > 0) && newRemLineValue > 0) {
+        const addBack = parseFloat(hdr.total_return_amount) || 0;
+        newGrandTotal = (parseFloat(delivery.grand_total) || 0) + addBack;
+        newTotalAmount = (parseFloat(delivery.total_amount) || 0) + addBack;
+        newSubtotal = (parseFloat(delivery.subtotal) || 0) + addBack;
+      }
+
+      const recomputedGrand =
+        newSubtotal -
+        newDiscountAmount +
+        newTaxAmount +
+        newShipping +
+        newOther +
+        newRoundOff;
+      if (
+        Number.isFinite(recomputedGrand) &&
+        Math.abs(recomputedGrand - newGrandTotal) > 0.02
+      ) {
+        newGrandTotal = recomputedGrand;
+      }
+      if (!(newTotalAmount > 0) && newRemLineValue > 0) {
+        newTotalAmount = newRemLineValue;
+      }
 
       await connection.query(
         `UPDATE deliveries
-         SET total_quantity = ?, total_amount = ?, grand_total = ?
+         SET total_quantity = ?,
+             total_amount = ?,
+             grand_total = ?,
+             subtotal = ?,
+             discount_amount = ?,
+             tax_amount = ?,
+             shipping_charges = ?,
+             other_charges = ?,
+             round_off = ?
          WHERE id = ?`,
-        [newTotalQuantity, newTotalAmount, newTotalAmount, hdr.delivery_id]
+        [
+          newTotalQuantity,
+          newTotalAmount,
+          newGrandTotal,
+          newSubtotal,
+          newDiscountAmount,
+          newTaxAmount,
+          newShipping,
+          newOther,
+          newRoundOff,
+          hdr.delivery_id,
+        ]
       );
 
       const ShopLedger = require('./ShopLedger');

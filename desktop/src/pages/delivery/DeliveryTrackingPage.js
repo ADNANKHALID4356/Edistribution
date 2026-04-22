@@ -13,6 +13,7 @@ import {
 import deliveryService from '../../services/deliveryService';
 import warehouseService from '../../services/warehouseService';
 import settingsService from '../../services/settingsService';
+import stockReturnService from '../../services/stockReturnService';
 
 const DeliveryTrackingPage = () => {
   const { showToast } = useToast();
@@ -151,6 +152,15 @@ const DeliveryTrackingPage = () => {
       const response = await deliveryService.getDeliveryById(delivery.id);
       
       let deliveryData = response.data;
+
+      // Attach returns for this delivery (needed for accurate re-print/PDF)
+      try {
+        const retRes = await stockReturnService.getReturnsByDelivery(delivery.id);
+        deliveryData.returns = retRes.data || [];
+      } catch (retErr) {
+        console.warn('Failed to fetch returns for delivery print:', retErr);
+        deliveryData.returns = [];
+      }
       
       // FALLBACK: If the backend hasn't been restarted/deployed to include the shop balance 
       // dynamically in getById, fetch it directly here to ensure it's always printed on the PDF
@@ -191,12 +201,37 @@ const DeliveryTrackingPage = () => {
         return;
       }
 
-      // Calculate effective discount
+      // Calculate effective discount (header fields are scaled after stock returns on the backend)
       const sub = parseFloat(selectedDelivery.subtotal || 0);
       const gt = parseFloat(selectedDelivery.grand_total || selectedDelivery.total_amount || 0);
       const storedDiscount = parseFloat(selectedDelivery.discount_amount || 0);
       const effectiveDiscount = storedDiscount > 0 ? storedDiscount : (sub > gt ? sub - gt : 0);
       const effectiveDiscountPct = sub > 0 && effectiveDiscount > 0 ? (effectiveDiscount / sub * 100) : 0;
+
+      const lineNetBaseline = (item) => {
+        const net = parseFloat(item.net_amount);
+        if (Number.isFinite(net) && net !== 0) return net;
+        const tp = parseFloat(item.total_price);
+        if (Number.isFinite(tp) && tp !== 0) return tp;
+        const del = parseFloat(item.quantity_delivered || item.quantity_ordered || 0);
+        return del * (parseFloat(item.unit_price) || 0);
+      };
+
+      const items = selectedDelivery.items || [];
+      let totalReturnedUnits = 0;
+      let totalReturnedValue = 0;
+      let totalKeptQty = 0;
+      items.forEach((item) => {
+        const del = parseFloat(item.quantity_delivered || item.quantity_ordered || 0);
+        const ret = parseFloat(item.quantity_returned || 0);
+        const net = lineNetBaseline(item);
+        totalReturnedUnits += ret;
+        totalReturnedValue += del > 0 ? (ret / del) * net : 0;
+        totalKeptQty += Math.max(del - ret, 0);
+      });
+      const hasReturns = totalReturnedUnits > 0;
+      const returnDocs = Array.isArray(selectedDelivery.returns) ? selectedDelivery.returns : [];
+      const hasReturnDocs = returnDocs.length > 0;
       
       printWindow.document.write(`
       <!DOCTYPE html>
@@ -440,44 +475,121 @@ const DeliveryTrackingPage = () => {
               <tr>
                 <th style="width:30px">#</th>
                 <th>Product</th>
-                <th style="width:60px">Code</th>
-                <th class="right" style="width:60px">Qty</th>
-                <th class="right" style="width:80px">Unit Price</th>
-                <th class="right" style="width:80px">Discount %</th>
-                <th class="right" style="width:90px">Total</th>
+                <th style="width:52px">Code</th>
+                <th class="right" style="width:52px">Sent</th>
+                <th class="right" style="width:52px">Ret.</th>
+                <th class="right" style="width:52px">Kept</th>
+                <th class="right" style="width:72px">Unit Price</th>
+                <th class="right" style="width:72px">Disc %</th>
+                <th class="right" style="width:88px">Line net (kept)</th>
               </tr>
             </thead>
             <tbody>
-              ${(selectedDelivery.items || []).map((item, index) => {
+              ${items.map((item, index) => {
                 const qty = parseFloat(item.quantity_delivered || item.quantity_ordered || 0);
+                const ret = parseFloat(item.quantity_returned || 0);
+                const kept = Math.max(qty - ret, 0);
                 const price = parseFloat(item.unit_price || 0);
                 const grossTotal = qty * price;
+                const lineNetFull = lineNetBaseline(item);
+                const lineNetKept = qty > 0 ? lineNetFull * (kept / qty) : 0;
                 const itemTotal = parseFloat(item.total_price || 0);
                 const itemDiscountAmt = parseFloat(item.discount_amount || 0);
                 const itemDiscountPct = parseFloat(item.discount_percentage || 0);
                 const effectiveItemDiscount = itemDiscountAmt > 0 ? itemDiscountAmt : (grossTotal > itemTotal ? grossTotal - itemTotal : 0);
                 const effectiveItemDiscountPct = itemDiscountPct > 0 ? itemDiscountPct : (grossTotal > 0 && effectiveItemDiscount > 0 ? (effectiveItemDiscount / grossTotal * 100) : 0);
+                const retVal = qty > 0 ? lineNetFull * (ret / qty) : 0;
                 return `
               <tr>
                 <td>${index + 1}</td>
-                <td>${item.product_name}</td>
+                <td>${item.product_name}${ret > 0 ? ' <span style="color:#b45309;font-size:8pt">(partial return)</span>' : ''}</td>
                 <td>${item.product_code || '-'}</td>
                 <td class="right">${qty}</td>
+                <td class="right">${ret > 0 ? ret : '—'}</td>
+                <td class="right">${kept}</td>
                 <td class="right">Rs. ${price.toFixed(2)}</td>
                 <td class="discount">${effectiveItemDiscount > 0 ? effectiveItemDiscountPct.toFixed(1) + '% (-Rs. ' + effectiveItemDiscount.toFixed(2) + ')' : '-'}</td>
-                <td class="right"><strong>Rs. ${itemTotal.toFixed(2)}</strong></td>
+                <td class="right"><strong>Rs. ${lineNetKept.toFixed(2)}</strong>${ret > 0 ? '<br><span style="font-size:8pt;color:#666">Returned value: Rs. ' + retVal.toFixed(2) + '</span>' : ''}</td>
               </tr>`;
               }).join('')}
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="3" style="text-align:right">Total Items: ${(selectedDelivery.items || []).length}</td>
-                <td class="right">${parseFloat(selectedDelivery.total_quantity || 0)}</td>
+                <td colspan="3" style="text-align:right">Total lines: ${items.length}</td>
+                <td class="right"></td>
+                <td class="right">${hasReturns ? totalReturnedUnits : '—'}</td>
+                <td class="right">${totalKeptQty}</td>
                 <td colspan="2"></td>
                 <td class="right">Rs. ${sub.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
+          
+          ${hasReturns ? `
+          <div style="margin-bottom: 18px; padding: 12px 14px; background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; font-size: 10pt;">
+            <div style="font-weight: 700; color: #9a3412; margin-bottom: 6px; text-transform: uppercase;">Returns on this challan (cumulative)</div>
+            <div style="color: #431407;">Total units returned: <strong>${totalReturnedUnits}</strong></div>
+            <div style="color: #431407;">Total returned value (net, proportional): <strong>Rs. ${totalReturnedValue.toFixed(2)}</strong></div>
+            <div style="color: #78716c; font-size: 9pt; margin-top: 4px;">Amounts follow line discounts; header totals below reflect goods kept after returns.</div>
+          </div>
+          ` : ''}
+
+          ${hasReturnDocs ? `
+          <div style="margin-bottom: 18px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 10pt;">
+            <div style="font-weight: 700; color: #0f172a; margin-bottom: 10px; text-transform: uppercase;">Return documents</div>
+            ${returnDocs.map((ret) => {
+              const hdr = ret || {};
+              const hdrNo = hdr.return_number || '-';
+              const hdrDate = hdr.return_date ? new Date(hdr.return_date).toLocaleString('en-GB') : 'N/A';
+              const hdrReason = hdr.reason || '';
+              const hdrNotes = hdr.notes || '';
+              const hdrAmt = parseFloat(hdr.total_return_amount || 0);
+              const hdrQty = parseFloat(hdr.total_quantity_returned || 0);
+              const lines = Array.isArray(hdr.items) ? hdr.items : [];
+              return `
+                <div style="padding: 10px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; margin-bottom: 10px;">
+                  <div style="display:flex; justify-content: space-between; gap: 12px; font-weight: 700;">
+                    <div>Return #: ${hdrNo}</div>
+                    <div style="text-align:right">Amount: Rs. ${hdrAmt.toFixed(2)}</div>
+                  </div>
+                  <div style="display:flex; justify-content: space-between; gap: 12px; color:#334155; margin-top: 2px;">
+                    <div>Date: ${hdrDate}</div>
+                    <div style="text-align:right">Qty: ${hdrQty}</div>
+                  </div>
+                  ${hdrReason ? `<div style="margin-top: 6px; color:#334155;"><strong>Reason:</strong> ${hdrReason}</div>` : ''}
+                  ${hdrNotes ? `<div style="margin-top: 2px; color:#334155;"><strong>Notes:</strong> ${hdrNotes}</div>` : ''}
+                  ${lines.length ? `
+                    <div style="margin-top: 8px; font-weight: 700; color:#0f172a;">Returned items</div>
+                    <table style="width:100%; border-collapse: collapse; margin-top: 6px; font-size: 9pt;">
+                      <thead>
+                        <tr>
+                          <th style="text-align:left; border-bottom:1px solid #e2e8f0; padding: 4px 0;">Product</th>
+                          <th style="text-align:right; border-bottom:1px solid #e2e8f0; padding: 4px 0; width:60px;">Qty</th>
+                          <th style="text-align:right; border-bottom:1px solid #e2e8f0; padding: 4px 0; width:90px;">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${lines.map((li) => {
+                          const ln = li || {};
+                          const nm = ln.product_name || '-';
+                          const q = parseFloat(ln.quantity_returned || 0);
+                          const v = parseFloat(ln.return_amount || 0);
+                          return `
+                            <tr>
+                              <td style="padding: 4px 0; border-bottom:1px dashed #e2e8f0;">${nm}</td>
+                              <td style="padding: 4px 0; border-bottom:1px dashed #e2e8f0; text-align:right;">${q}</td>
+                              <td style="padding: 4px 0; border-bottom:1px dashed #e2e8f0; text-align:right;">Rs. ${v.toFixed(2)}</td>
+                            </tr>
+                          `;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+          ` : ''}
           
           <!-- Financial Summary -->
           <div class="financial-section">

@@ -267,9 +267,10 @@ const Order = {
         try {
           // Fetch current purchase prices to establish accurate historic COGS
           const productIds = items.map(item => item.product_id);
+          const placeholders = productIds.map(() => '?').join(',');
           const [products] = await connection.query(
-            `SELECT id, purchase_price FROM products WHERE id IN (?)`,
-            [productIds]
+            `SELECT id, purchase_price FROM products WHERE id IN (${placeholders})`,
+            productIds
           );
           const purchasePriceMap = {};
           products.forEach(p => { purchasePriceMap[p.id] = parseFloat(p.purchase_price) || 0; });
@@ -958,6 +959,16 @@ const Order = {
             }
           }
 
+          // Fetch current purchase prices for updated items
+          const productIds = items.map(item => item.product_id);
+          const placeholders = productIds.map(() => '?').join(',');
+          const [products] = await connection.query(
+            `SELECT id, purchase_price FROM products WHERE id IN (${placeholders})`,
+            productIds
+          );
+          const purchasePriceMap = {};
+          products.forEach(p => { purchasePriceMap[p.id] = parseFloat(p.purchase_price) || 0; });
+
           // Insert new order items
           if (useSQLite) {
             // SQLite: Individual inserts with discount_percentage (no net_price column)
@@ -967,12 +978,13 @@ const Order = {
               const discount_percentage = item.discount && item.total_price > 0 
                 ? (item.discount / item.total_price) * 100 
                 : 0;
+              const unit_purchase_cost = purchasePriceMap[item.product_id] || 0;
               
               await connection.query(
                 `INSERT INTO ${ORDER_DETAILS_TABLE} 
-                 (order_id, product_id, quantity, unit_price, total_price, discount_percentage)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [id, item.product_id, item.quantity, item.unit_price, item.total_price, discount_percentage]
+                 (order_id, product_id, quantity, unit_price, total_price, discount_percentage, unit_purchase_cost)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [id, item.product_id, item.quantity, item.unit_price, item.total_price, discount_percentage, unit_purchase_cost]
               );
             }
             console.log('✅ [ORDER UPDATE] New order items inserted (SQLite)');
@@ -984,6 +996,7 @@ const Order = {
               const discount_percentage = item.discount_percentage 
                 ? parseFloat(item.discount_percentage) 
                 : (discountAmt > 0 && item.total_price > 0 ? (discountAmt / item.total_price) * 100 : 0);
+              const unit_purchase_cost = purchasePriceMap[item.product_id] || 0;
               return [
                 id,
                 item.product_id,
@@ -992,7 +1005,8 @@ const Order = {
                 discountAmt,
                 discount_percentage,
                 item.total_price,
-                item.net_price
+                item.net_price,
+                unit_purchase_cost
               ];
             });
 
