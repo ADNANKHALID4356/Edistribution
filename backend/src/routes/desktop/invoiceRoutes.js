@@ -7,42 +7,45 @@
 const express = require('express');
 const router = express.Router();
 const invoiceController = require('../../controllers/invoiceController');
+const { protect, authorize, ROLES } = require('../../middleware/auth');
 
 // ========================================
 // IMPORTANT: Specific routes MUST come before generic :id routes
 // ========================================
+router.use(protect);
+const INVOICE_ROLES = [ROLES.ADMIN, ROLES.SENIOR_MANAGER];
 
 // Get invoice statistics
-router.get('/statistics', invoiceController.getInvoiceStatistics);
+router.get('/statistics', authorize(...INVOICE_ROLES), invoiceController.getInvoiceStatistics);
 
 // Bulk delete cancelled invoices (MUST be before /:id routes)
-router.delete('/bulk-delete', invoiceController.bulkDeleteInvoices);
+router.delete('/bulk-delete', authorize(...INVOICE_ROLES), invoiceController.bulkDeleteInvoices);
 
 // Get invoices available for delivery (no or partial challans)
-router.get('/available-for-delivery', invoiceController.getInvoicesAvailableForDelivery);
+router.get('/available-for-delivery', authorize(...INVOICE_ROLES), invoiceController.getInvoicesAvailableForDelivery);
 
 // Get unpaid invoices
-router.get('/unpaid', invoiceController.getUnpaidInvoices);
+router.get('/unpaid', authorize(...INVOICE_ROLES), invoiceController.getUnpaidInvoices);
 
 // Get invoices by shop
-router.get('/by-shop/:shopId', invoiceController.getInvoicesByShop);
+router.get('/by-shop/:shopId', authorize(...INVOICE_ROLES), invoiceController.getInvoicesByShop);
 
 // Get all invoices with filters and pagination
-router.get('/', invoiceController.getAllInvoices);
+router.get('/', authorize(...INVOICE_ROLES), invoiceController.getAllInvoices);
 
 // Record payment for invoice (MUST be before /:id routes)
-router.put('/:id/payment', invoiceController.recordPayment);
+router.put('/:id/payment', authorize(...INVOICE_ROLES), invoiceController.recordPayment);
 
 // Get invoice by ID
-router.get('/:id', invoiceController.getInvoiceById);
+router.get('/:id', authorize(...INVOICE_ROLES), invoiceController.getInvoiceById);
 
 // Create new invoice
-router.post('/', invoiceController.createInvoice);
+router.post('/', authorize(...INVOICE_ROLES), invoiceController.createInvoice);
 
 // Update invoice (MUST be after specific PUT routes)
-router.put('/:id', invoiceController.updateInvoice);
+router.put('/:id', authorize(...INVOICE_ROLES), invoiceController.updateInvoice);
 
 // Delete invoice (soft delete - cancel)
-router.delete('/:id', invoiceController.deleteInvoice);
+router.delete('/:id', authorize(...INVOICE_ROLES), invoiceController.deleteInvoice);
 
 module.exports = router;

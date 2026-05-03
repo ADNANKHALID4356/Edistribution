@@ -21,6 +21,7 @@ if (!useSQLite) {
 
 // Performance optimization middleware
 const { cache, getCacheStats, clearCache } = require('./src/middleware/cache');
+const { protect, authorize, ROLES } = require('./src/middleware/auth');
 
 const app = express();
 
@@ -103,6 +104,7 @@ app.use('/api/shared/shops', require('./src/routes/shared/shopRoutes'));
 // Sprint 4: Salesman Management & Dashboard Routes
 app.use('/api/desktop/salesmen', require('./src/routes/desktop/salesmanRoutes'));
 app.use('/api/desktop/salesman-ledger', require('./src/routes/desktop/salesmanLedgerRoutes'));
+app.use('/api/desktop/users', require('./src/routes/desktop/userRoutes'));
 app.use('/api/desktop/dashboard', require('./src/routes/desktop/dashboardRoutes'));
 app.use('/api/shared/salesmen', require('./src/routes/shared/salesmanRoutes'));
 
@@ -135,7 +137,7 @@ app.use('/api/desktop/daily-collections', require('./src/routes/desktop/dailyCol
 // ============================================================
 
 // Cache management endpoints (admin only)
-app.get('/api/admin/cache/stats', (req, res) => {
+app.get('/api/admin/cache/stats', protect, authorize(ROLES.ADMIN, ROLES.SENIOR_MANAGER), (req, res) => {
   const stats = getCacheStats();
   res.json({
     success: true,
@@ -143,7 +145,7 @@ app.get('/api/admin/cache/stats', (req, res) => {
   });
 });
 
-app.post('/api/admin/cache/clear', (req, res) => {
+app.post('/api/admin/cache/clear', protect, authorize(ROLES.ADMIN, ROLES.SENIOR_MANAGER), (req, res) => {
   clearCache();
   res.json({
     success: true,

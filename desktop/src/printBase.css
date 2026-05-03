@@ -1,0 +1,64 @@
+/*
+  Shared print baseline for ALL documents.
+  Goal: consistent A4 sizing + professional typography across physical printers.
+
+  Per-page templates can still override @page size (e.g., landscape for wide tables),
+  but font sizing and layout defaults should remain predictable.
+*/
+
+:root {
+  --print-base-font: 10pt;
+  --print-small-font: 9pt;
+  --print-h1-font: 16pt;
+  --print-h2-font: 13pt;
+  --print-margin: 12mm;
+}
+
+@media print {
+  /* Default page setup (can be overridden by page-specific @page rules) */
+  @page {
+    size: A4;
+    margin: var(--print-margin);
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body {
+    font-family: "Segoe UI", Arial, sans-serif !important;
+    font-size: var(--print-base-font) !important;
+    line-height: 1.35 !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  /* Avoid huge Tailwind screen sizes affecting print */
+  h1 { font-size: var(--print-h1-font) !important; }
+  h2 { font-size: var(--print-h2-font) !important; }
+  p, span, div { font-size: inherit; }
+
+  /* Consistent tables */
+  table {
+    border-collapse: collapse !important;
+    font-size: var(--print-small-font) !important;
+  }
+
+  th, td {
+    font-size: var(--print-small-font) !important;
+  }
+
+  /* Common utility hooks used across pages */
+  .no-print,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Color adjustments (important for badges/headers) */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+

@@ -8,11 +8,11 @@ const {
   updateCompanySettings,
   getInvoiceInfo
 } = require('../controllers/settingsController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize, ROLES } = require('../middleware/auth');
 
 // All settings routes are protected (require authentication)
-router.get('/company', protect, getCompanySettings);
-router.put('/company', protect, updateCompanySettings);
-router.get('/company/invoice-info', protect, getInvoiceInfo);
+router.get('/company', protect, authorize(ROLES.ADMIN, ROLES.SENIOR_MANAGER, ROLES.MANAGER), getCompanySettings);
+router.put('/company', protect, authorize(ROLES.ADMIN, ROLES.SENIOR_MANAGER, ROLES.MANAGER), updateCompanySettings);
+router.get('/company/invoice-info', protect, authorize(ROLES.ADMIN, ROLES.SENIOR_MANAGER, ROLES.MANAGER), getInvoiceInfo);
 
 module.exports = router;

@@ -6,6 +6,6 @@ module.exports = {
     '!src/config/database*.js',
     '!src/config/migrations.js'
   ],
-  setupFilesAfterSetup: [],
+  setupFilesAfterEnv: [],
   verbose: true
 };

@@ -2,6 +2,7 @@
  * Unit Tests for New Feature Models and Controllers
  * Tests the business logic and data validation
  */
+const { authorize, normalizeRoleName, ROLES } = require('../src/middleware/auth');
 
 // ============================
 // StockReturn Model Unit Tests
@@ -231,5 +232,41 @@ describe('Route Consolidated Bill - Logic Tests', () => {
 
     const routeTotal = shops.reduce((sum, s) => sum + s.total, 0);
     expect(routeTotal).toBe(7000);
+  });
+});
+
+// ============================
+// RBAC Authorization Tests
+// ============================
+describe('RBAC Authorization - Four Role Matrix', () => {
+  test('normalizes legacy role names to canonical RBAC roles', () => {
+    expect(normalizeRoleName('manager')).toBe(ROLES.MANAGER);
+    expect(normalizeRoleName('Warehouse')).toBe(ROLES.STOCK_MANAGER);
+    expect(normalizeRoleName('viewer')).toBe(ROLES.ACCOUNTANT);
+    expect(normalizeRoleName('Admin')).toBe(ROLES.ADMIN);
+  });
+
+  test('authorize allows canonical Manager role access', () => {
+    const req = { user: { role_name: 'manager' } };
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const next = jest.fn();
+
+    const middleware = authorize(ROLES.MANAGER);
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test('authorize rejects role outside allowed matrix', () => {
+    const req = { user: { role_name: ROLES.ACCOUNTANT } };
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const next = jest.fn();
+
+    const middleware = authorize(ROLES.STOCK_MANAGER);
+    middleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
   });
 });

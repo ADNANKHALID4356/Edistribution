@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import salesmanService from '../../services/salesmanService';
 import './SalesmanListingPage.css';
 
 function SalesmanListingPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const currentRole = user?.role_name || user?.role;
+  const isAccountant = currentRole === 'Accountant';
   const [salesmen, setSalesmen] = useState([]);
   const [loading, setLoading] = useState(true);
       const [stats, setStats] = useState({ total: 0, active: 0, cities: 0 });
@@ -486,13 +490,19 @@ function SalesmanListingPage() {
             ← Back to Dashboard
           </button>
           <div className="header-title">
-            <h1>Salesman Management</h1>
-            <p>Manage your sales team and route assignments</p>
+            <h1>{isAccountant ? 'Salesman Ledger' : 'Salesman Management'}</h1>
+            <p>
+              {isAccountant
+                ? 'Access and maintain salesman salary ledger entries.'
+                : 'Manage your sales team and route assignments'}
+            </p>
           </div>
         </div>
-        <button className="add-button" onClick={handleAddNew}>
-          + Add New Salesman
-        </button>
+        {!isAccountant && (
+          <button className="add-button" onClick={handleAddNew}>
+            + Add New Salesman
+          </button>
+        )}
       </div>
 
       
@@ -596,20 +606,24 @@ function SalesmanListingPage() {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button 
-                          className="action-btn btn-edit" 
-                          onClick={() => handleEdit(salesman.id)}
-                          title="Edit"
-                        >
-                          ✏️ Edit
-                        </button>
-                        <button 
-                          className="action-btn btn-routes" 
-                          onClick={() => handleViewRoutes(salesman.id)}
-                          title="Routes"
-                        >
-                          🗺️ Routes
-                        </button>
+                        {!isAccountant && (
+                          <>
+                            <button 
+                              className="action-btn btn-edit" 
+                              onClick={() => handleEdit(salesman.id)}
+                              title="Edit"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button 
+                              className="action-btn btn-routes" 
+                              onClick={() => handleViewRoutes(salesman.id)}
+                              title="Routes"
+                            >
+                              🗺️ Routes
+                            </button>
+                          </>
+                        )}
                         <button 
                           className="action-btn btn-ledger" 
                           onClick={() => handleOpenLedger(salesman.id, salesman.full_name)}
@@ -617,27 +631,31 @@ function SalesmanListingPage() {
                         >
                           📊 Ledger
                         </button>
-                        <button 
-                          className="action-btn btn-credentials" 
-                          onClick={() => handleViewCredentials(salesman.id, salesman.full_name)}
-                          title="View Credentials"
-                        >
-                          🔑 Credentials
-                        </button>
-                        <button 
-                          className="action-btn btn-reset-password" 
-                          onClick={() => handleResetPassword(salesman.id, salesman.full_name)}
-                          title="Reset Password"
-                        >
-                          🔄 Reset Password
-                        </button>
-                        <button 
-                          className="action-btn btn-delete" 
-                          onClick={() => handleDelete(salesman.id, salesman.full_name, salesman.is_active)}
-                          title={salesman.is_active === 1 ? "Deactivate" : "Permanently Delete"}
-                        >
-                          🗑️ {salesman.is_active === 1 ? 'Deactivate' : 'Delete'}
-                        </button>
+                        {!isAccountant && (
+                          <>
+                            <button 
+                              className="action-btn btn-credentials" 
+                              onClick={() => handleViewCredentials(salesman.id, salesman.full_name)}
+                              title="View Credentials"
+                            >
+                              🔑 Credentials
+                            </button>
+                            <button 
+                              className="action-btn btn-reset-password" 
+                              onClick={() => handleResetPassword(salesman.id, salesman.full_name)}
+                              title="Reset Password"
+                            >
+                              🔄 Reset Password
+                            </button>
+                            <button 
+                              className="action-btn btn-delete" 
+                              onClick={() => handleDelete(salesman.id, salesman.full_name, salesman.is_active)}
+                              title={salesman.is_active === 1 ? "Deactivate" : "Permanently Delete"}
+                            >
+                              🗑️ {salesman.is_active === 1 ? 'Deactivate' : 'Delete'}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

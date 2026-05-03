@@ -5,6 +5,7 @@
  */
 
 const db = require('../config/database');
+const { ROLES, normalizeRoleName } = require('../middleware/auth');
 
 /**
  * Get overall dashboard statistics
@@ -43,6 +44,8 @@ exports.getDashboardStats = async (req, res) => {
     const useSQLite = process.env.USE_SQLITE === 'true';
     console.log('🔵 USE_SQLITE:', useSQLite);
     let dashboardStats;
+    const currentRole = normalizeRoleName(req.user?.role_name || req.user?.role);
+    const isFinancialDashboardRestricted = currentRole === ROLES.MANAGER;
     
     if (useSQLite) {
       // SQLite: Direct queries instead of views
@@ -243,57 +246,65 @@ exports.getDashboardStats = async (req, res) => {
       };
     }
 
-    // Calculate P&L metrics with dynamic filters for Phase 3
-    const ORDER_DETAILS_TABLE = useSQLite ? 'order_items' : 'order_details';
-    
-    // Use order_details instead of delivery_items directly to prevent 0 or double joins if deliveries table isn't aligned. 
-    // And Stock Returns status is 'processed' not 'approved'.
-    const pnlQuery = `
-      SELECT 
-        COALESCE(SUM(od.net_price), 0) AS total_gross_revenue,
-        COALESCE(SUM(od.quantity * od.unit_purchase_cost), 0) AS total_cogs
-      FROM orders o
-      JOIN ${ORDER_DETAILS_TABLE} od ON o.id = od.order_id
-      WHERE o.status IN ('delivered', 'finalized') AND ${oWhere}
-    `;
-
-    const srQuery = `
-      SELECT 
-        COALESCE(SUM(sr.total_return_amount), 0) AS total_return_revenue
-      FROM stock_returns sr
-      WHERE sr.status = 'completed' AND ${srWhere}
-    `;
-
-    try {
-      const [pnlRows] = await db.query(pnlQuery, oParams);
-      const [srRows] = await db.query(srQuery, srParams);
-
-      const total_gross_revenue = parseFloat(pnlRows[0]?.total_gross_revenue || 0);
-      const total_cogs = parseFloat(pnlRows[0]?.total_cogs || 0);
-      const total_return_revenue = parseFloat(srRows[0]?.total_return_revenue || 0);
-      const net_revenue = total_gross_revenue - total_return_revenue;
-      const gross_profit = net_revenue - total_cogs;
-
-      // Append P&L metrics to dashboardStats
-      dashboardStats.total_gross_revenue = total_gross_revenue;
-      dashboardStats.total_cogs = total_cogs;
-      dashboardStats.net_cogs = total_cogs; // mapping for frontend alias
-      dashboardStats.total_return_revenue = total_return_revenue;
-      dashboardStats.net_revenue = net_revenue;
-      dashboardStats.gross_profit = gross_profit;
+    if (!isFinancialDashboardRestricted) {
+      // Calculate P&L metrics with dynamic filters for Phase 3
+      const ORDER_DETAILS_TABLE = useSQLite ? 'order_items' : 'order_details';
       
-      console.log('💰 Phase 3 P&L Metrics appended correctly:', { 
-        total_gross_revenue, total_cogs, total_return_revenue, net_revenue, gross_profit 
-      });
-    } catch (metricError) {
-      console.error('Error calculating P&L metrics:', metricError);
-        // Graceful degradation
+      // Use order_details instead of delivery_items directly to prevent 0 or double joins if deliveries table isn't aligned. 
+      // And Stock Returns status is 'processed' not 'approved'.
+      const pnlQuery = `
+        SELECT 
+          COALESCE(SUM(od.net_price), 0) AS total_gross_revenue,
+          COALESCE(SUM(od.quantity * od.unit_purchase_cost), 0) AS total_cogs
+        FROM orders o
+        JOIN ${ORDER_DETAILS_TABLE} od ON o.id = od.order_id
+        WHERE o.status IN ('delivered', 'finalized') AND ${oWhere}
+      `;
+
+      const srQuery = `
+        SELECT 
+          COALESCE(SUM(sr.total_return_amount), 0) AS total_return_revenue
+        FROM stock_returns sr
+        WHERE sr.status = 'completed' AND ${srWhere}
+      `;
+
+      try {
+        const [pnlRows] = await db.query(pnlQuery, oParams);
+        const [srRows] = await db.query(srQuery, srParams);
+
+        const total_gross_revenue = parseFloat(pnlRows[0]?.total_gross_revenue || 0);
+        const total_cogs = parseFloat(pnlRows[0]?.total_cogs || 0);
+        const total_return_revenue = parseFloat(srRows[0]?.total_return_revenue || 0);
+        const net_revenue = total_gross_revenue - total_return_revenue;
+        const gross_profit = net_revenue - total_cogs;
+
+        // Append P&L metrics to dashboardStats
+        dashboardStats.total_gross_revenue = total_gross_revenue;
+        dashboardStats.total_cogs = total_cogs;
+        dashboardStats.net_cogs = total_cogs; // mapping for frontend alias
+        dashboardStats.total_return_revenue = total_return_revenue;
+        dashboardStats.net_revenue = net_revenue;
+        dashboardStats.gross_profit = gross_profit;
+        
+        console.log('💰 Phase 3 P&L Metrics appended correctly:', { 
+          total_gross_revenue, total_cogs, total_return_revenue, net_revenue, gross_profit 
+        });
+      } catch (metricError) {
+        console.error('Error calculating P&L metrics:', metricError);
         dashboardStats.total_gross_revenue = 0;
         dashboardStats.total_cogs = 0;
         dashboardStats.net_cogs = 0;
         dashboardStats.total_return_revenue = 0;
         dashboardStats.net_revenue = 0;
         dashboardStats.gross_profit = 0;
+      }
+    } else {
+      dashboardStats.total_gross_revenue = 0;
+      dashboardStats.total_cogs = 0;
+      dashboardStats.net_cogs = 0;
+      dashboardStats.total_return_revenue = 0;
+      dashboardStats.net_revenue = 0;
+      dashboardStats.gross_profit = 0;
     }
 
     // Set cache-control headers to prevent caching of stats

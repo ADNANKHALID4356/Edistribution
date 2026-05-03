@@ -22,15 +22,15 @@ export const generateDeliveryChallanPDF = (challanData, companyInfo = {}) => {
   console.log('🎨 PDF GENERATOR - Received companyInfo:', companyInfo);
   console.log('🎨 PDF GENERATOR - Received challanData:', challanData);
   
-  // Thermal receipt size: 80mm width (226 pixels at 72 DPI)
-  // Height is dynamic based on content
-  const pageWidthMM = 80;
-  const pageHeightMM = 297; // Start with A4 height, will expand as needed
-  
+  // Default is thermal receipt format; allow A4 for physical printers.
+  // options.paper: 'thermal80' | 'a4'
+  const options = arguments.length >= 3 && arguments[2] ? arguments[2] : {};
+  const paper = options.paper || 'thermal80';
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [pageWidthMM, pageHeightMM]
+    format: paper === 'a4' ? 'a4' : [80, 297],
   });
   
   // Set default text color to black
@@ -50,8 +50,10 @@ export const generateDeliveryChallanPDF = (challanData, companyInfo = {}) => {
 
   const pageWidth = doc.internal.pageSize.getWidth();
   let pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 5; // Margins
-  let yPos = 8; // Start at top of page
+
+  // Use larger margins on A4 so content matches browser-print style docs.
+  const margin = paper === 'a4' ? 12 : 5;
+  let yPos = paper === 'a4' ? 12 : 8;
   
   // Track content height for dynamic page sizing
   let maxContentHeight = 0;
@@ -59,9 +61,16 @@ export const generateDeliveryChallanPDF = (challanData, companyInfo = {}) => {
   // Helper function to check if we need more space
   const ensureSpace = (requiredSpace) => {
     if (yPos + requiredSpace > pageHeight - 5) {
-      // Extend page height instead of adding new page
-      pageHeight += 50;
-      doc.internal.pageSize.setHeight(pageHeight);
+      if (paper === 'a4') {
+        // A4: add a new page instead of stretching (more predictable on printers)
+        doc.addPage();
+        pageHeight = doc.internal.pageSize.getHeight();
+        yPos = margin;
+      } else {
+        // Thermal: extend page height instead of adding new page
+        pageHeight += 50;
+        doc.internal.pageSize.setHeight(pageHeight);
+      }
     }
     maxContentHeight = Math.max(maxContentHeight, yPos);
   };
@@ -507,7 +516,8 @@ export const generateDeliveryChallanPDF = (challanData, companyInfo = {}) => {
  * Download PDF to user's computer
  */
 export const downloadChallanPDF = (challanData, companyInfo) => {
-  const doc = generateDeliveryChallanPDF(challanData, companyInfo);
+  const options = arguments.length >= 3 && arguments[2] ? arguments[2] : {};
+  const doc = generateDeliveryChallanPDF(challanData, companyInfo, options);
   const filename = `Challan_${challanData.challan_number || 'DRAFT'}_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(filename);
 };
@@ -518,7 +528,8 @@ export const downloadChallanPDF = (challanData, companyInfo) => {
 export const printChallanPDF = (challanData, companyInfo) => {
   console.log('📄 PRINT FUNCTION - Called with:', { challanData, companyInfo });
   
-  const doc = generateDeliveryChallanPDF(challanData, companyInfo);
+  const options = arguments.length >= 3 && arguments[2] ? arguments[2] : {};
+  const doc = generateDeliveryChallanPDF(challanData, companyInfo, options);
   
   console.log('📄 PRINT FUNCTION - PDF generated, doc object:', doc);
   console.log('📄 PRINT FUNCTION - PDF page count:', doc.internal.getNumberOfPages());

@@ -4,6 +4,18 @@ import { useAuth } from '../../context/AuthContext';
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { isAuthenticated, loading, user } = useAuth();
+  const normalizeRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    if (normalized === 'manager') return 'Manager';
+    if (normalized === 'warehouse') return 'Stock Manager';
+    if (normalized === 'viewer') return 'Accountant';
+    if (normalized === 'admin') return 'Admin';
+    if (normalized === 'senior manager') return 'Senior Manager';
+    if (normalized === 'stock manager') return 'Stock Manager';
+    if (normalized === 'accountant') return 'Accountant';
+    if (normalized === 'salesman') return 'Salesman';
+    return role;
+  };
 
   if (loading) {
     return (
@@ -22,7 +34,9 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
   // Check if user has required role
   if (allowedRoles.length > 0 && user) {
-    if (!allowedRoles.includes(user.role)) {
+    const userRole = normalizeRole(user.role_name || user.role);
+    const normalizedAllowedRoles = allowedRoles.map(normalizeRole);
+    if (!normalizedAllowedRoles.includes(userRole)) {
       // User doesn't have permission, redirect to dashboard
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">

@@ -71,6 +71,33 @@ const RouteConsolidatedBillPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Print baseline overrides specific to this document (wide tables) */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 10mm 12mm;
+          }
+
+          body {
+            font-size: 10pt !important;
+            line-height: 1.35 !important;
+          }
+
+          h1 { font-size: 16pt !important; }
+          h2 { font-size: 13pt !important; }
+
+          /* Ensure big UI cards don't blow up fonts in print */
+          .text-2xl { font-size: 13pt !important; }
+          .text-xl { font-size: 11pt !important; }
+          .text-lg { font-size: 10.5pt !important; }
+          .text-sm { font-size: 9pt !important; }
+          .text-xs { font-size: 8.5pt !important; }
+
+          /* Keep gradients/shadows from affecting print */
+          .shadow-xl, .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
+        }
+      `}</style>
       {/* Header - hidden in print */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

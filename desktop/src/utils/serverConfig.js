@@ -28,7 +28,7 @@ const CONNECTION_TIMEOUT_MS = 5000;
 //   - Option 2: Keep localhost so users configure the server on first launch.
 
 /** @type {{ host: string, port: string, protocol: 'http' | 'https' }} */
-const DEFAULT_CONFIG = {
+const PRODUCTION_DEFAULT_CONFIG = {
   host: '147.93.108.205', // VPS Production Server
   port: '5005',           // Real backend port
   protocol: 'http',
@@ -76,12 +76,36 @@ const isLocalHostConfig = (config) => {
 };
 
 /**
+ * Returns local runtime fallback when app runs from localhost/dev shell.
+ * This prevents accidental calls to production while testing locally.
+ *
+ * @returns {{ host: string, port: string, protocol: 'http' | 'https' }}
+ */
+const getRuntimeDefaultConfig = () => {
+  const runtimeHost = String(window?.location?.hostname ?? '').toLowerCase();
+  const runtimeProtocol = String(window?.location?.protocol ?? '').toLowerCase();
+  const runningLocally = runtimeHost === 'localhost' || runtimeHost === '127.0.0.1';
+  const isFileProtocol = runtimeProtocol === 'file:';
+
+  if (runningLocally || isFileProtocol) {
+    return {
+      host: 'localhost',
+      port: '5001',
+      protocol: 'http',
+    };
+  }
+
+  return PRODUCTION_DEFAULT_CONFIG;
+};
+
+/**
  * Checks the stored config version and resets stale or incompatible configs.
  * Also auto-heals a stored localhost config when the app default is a remote server.
  * Should be called once at application startup, not on every module import.
  */
 export const initServerConfig = () => {
   try {
+    const runtimeDefault = getRuntimeDefaultConfig();
     const storedVersion = parseInt(localStorage.getItem(CONFIG_VERSION_KEY) ?? '0', 10);
 
     if (storedVersion < CURRENT_CONFIG_VERSION) {
@@ -91,16 +115,16 @@ export const initServerConfig = () => {
       return;
     }
 
-    // Auto-heal: if the app now targets a remote server but a localhost config
-    // is still stored (e.g. a developer leftover), wipe it.
+    // Auto-heal stale configs when runtime target and stored values drift.
     const stored = localStorage.getItem(SERVER_CONFIG_KEY);
     if (stored) {
       const parsed = normalizeConfig(JSON.parse(stored));
-      const defaultIsRemote = !isLocalHostConfig(DEFAULT_CONFIG);
+      const defaultIsRemote = !isLocalHostConfig(runtimeDefault);
+      const runtimeIsLocal = isLocalHostConfig(runtimeDefault);
 
-      if (!parsed || (defaultIsRemote && isLocalHostConfig(parsed))) {
+      if (!parsed || (defaultIsRemote && isLocalHostConfig(parsed)) || (runtimeIsLocal && !isLocalHostConfig(parsed))) {
         localStorage.removeItem(SERVER_CONFIG_KEY);
-        console.log('[serverConfig] Stale localhost config replaced with production defaults.');
+        console.log('[serverConfig] Stale server config reset for current runtime defaults.');
       }
     }
   } catch (error) {
@@ -119,16 +143,23 @@ export const initServerConfig = () => {
  * @returns {{ host: string, port: string, protocol: 'http' | 'https' }}
  */
 export const getServerConfig = () => {
+  const runtimeDefault = getRuntimeDefaultConfig();
   try {
     const stored = localStorage.getItem(SERVER_CONFIG_KEY);
     if (stored) {
       const parsed = normalizeConfig(JSON.parse(stored));
-      if (parsed) return parsed;
+      if (parsed) {
+        // If app runs locally, force local backend to prevent accidental remote calls.
+        if (isLocalHostConfig(runtimeDefault) && !isLocalHostConfig(parsed)) {
+          return runtimeDefault;
+        }
+        return parsed;
+      }
     }
   } catch (error) {
     console.error('[serverConfig] Error reading config:', error);
   }
-  return normalizeConfig(DEFAULT_CONFIG) ?? DEFAULT_CONFIG;
+  return normalizeConfig(runtimeDefault) ?? runtimeDefault;
 };
 
 /**

@@ -6,11 +6,13 @@ const {
   logout, 
   getProfile 
 } = require('../controllers/authController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize, ROLES } = require('../middleware/auth');
 
 // Public routes
-router.post('/register', register);
 router.post('/login', login);
+
+// Restricted user creation route
+router.post('/register', protect, authorize(ROLES.ADMIN, ROLES.SENIOR_MANAGER), register);
 
 // Protected routes
 router.post('/logout', protect, logout);

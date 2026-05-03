@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { normalizeRoleName, ROLES } = require('../middleware/auth');
 
 // Database compatibility: SQLite uses different table names than MySQL
 const useSQLite = process.env.USE_SQLITE === 'true' && process.env.NODE_ENV === 'development';
@@ -6,6 +7,11 @@ const ORDER_DETAILS_TABLE = useSQLite ? 'order_items' : 'order_details';
 const INVOICE_DETAILS_TABLE = useSQLite ? 'invoice_items' : 'invoice_details';
 
 console.log(`🔧 Shop Controller: Using tables - Orders: "${ORDER_DETAILS_TABLE}", Invoices: "${INVOICE_DETAILS_TABLE}" (SQLite=${useSQLite})`);
+
+const hasManagementScope = (reqUser) => {
+  const role = normalizeRoleName(reqUser?.role_name || reqUser?.role);
+  return role === ROLES.ADMIN || role === ROLES.SENIOR_MANAGER || role === ROLES.MANAGER;
+};
 
 // Get all shops with pagination and filters
 exports.getAllShops = async (req, res) => {
@@ -17,7 +23,7 @@ exports.getAllShops = async (req, res) => {
     const params = [];
     
     // Phase 3 & 4 Identity Security: If user is a salesman, restrict query to only their assigned shops
-    if (req.user && req.user.role_name && req.user.role_name.toLowerCase() !== 'admin' && req.user.role_name.toLowerCase() !== 'manager') {
+    if (req.user && !hasManagementScope(req.user)) {
       if (req.user.salesman_id) {
         query += ' AND s.salesman_id = ?';
         params.push(req.user.salesman_id);
@@ -95,7 +101,7 @@ exports.getShopsByRoute = async (req, res) => {
     const params = [routeId];
 
     // Identity Security: Filter by salesman_id if not admin
-    if (req.user && req.user.role_name && req.user.role_name.toLowerCase() !== 'admin' && req.user.role_name.toLowerCase() !== 'manager') {
+    if (req.user && !hasManagementScope(req.user)) {
       if (req.user.salesman_id) {
         query += ' AND salesman_id = ?';
         params.push(req.user.salesman_id);
@@ -131,7 +137,7 @@ exports.getShopById = async (req, res) => {
     const params = [id];
 
     // Identity Security: Only allow fetching details of assigned shop
-    if (req.user && req.user.role_name && req.user.role_name.toLowerCase() !== 'admin' && req.user.role_name.toLowerCase() !== 'manager') {
+    if (req.user && !hasManagementScope(req.user)) {
       if (req.user.salesman_id) {
         query += ' AND s.salesman_id = ?';
         params.push(req.user.salesman_id);

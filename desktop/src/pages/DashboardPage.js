@@ -19,6 +19,7 @@ import {
   BanknotesIcon,
   DocumentTextIcon,
   DocumentArrowDownIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline';
 
 const DashboardPage = () => {
@@ -133,6 +134,10 @@ useEffect(() => {
     return 'Rs ' + parseFloat(num || 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
+  const currentRole = user?.role_name || user?.role || '';
+  const hasRole = (...allowed) => allowed.includes(currentRole);
+  const canViewFinancialDashboard = hasRole('Admin', 'Senior Manager', 'Accountant');
+
   const exportToPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -218,13 +223,13 @@ useEffect(() => {
 
   // Use ACTIVE counts to match what users see on management pages (which filter by is_active=true by default)
   const statsCards = [
-    { name: 'Total Products', value: stats.active_products || stats.total_products, icon: TruckIcon, gradient: 'from-emerald-400 to-emerald-600', bgLight: 'bg-emerald-50', borderColor: 'border-emerald-200', link: '/products' },
-    { name: 'Total Orders', value: stats.total_orders, icon: ShoppingBagIcon, gradient: 'from-violet-400 to-violet-600', bgLight: 'bg-violet-50', borderColor: 'border-violet-200', link: '/orders' },
-    { name: 'Total Deliveries', value: stats.total_deliveries || 0, icon: ClipboardDocumentListIcon, gradient: 'from-orange-400 to-orange-600', bgLight: 'bg-orange-50', borderColor: 'border-orange-200', link: '/deliveries' },
-    { name: 'Total Shops', value: stats.active_shops || stats.total_shops, icon: HomeIcon, gradient: 'from-amber-400 to-amber-600', bgLight: 'bg-amber-50', borderColor: 'border-amber-200', link: '/shops' },
-    { name: 'Total Salesmen', value: stats.active_salesmen || stats.total_salesmen, icon: UserGroupIcon, gradient: 'from-indigo-400 to-indigo-600', bgLight: 'bg-indigo-50', borderColor: 'border-indigo-200', link: '/salesmen' },
-    { name: 'Total Warehouses', value: stats.active_warehouses || stats.total_warehouses, icon: CubeIcon, gradient: 'from-teal-400 to-teal-600', bgLight: 'bg-teal-50', borderColor: 'border-teal-200', link: '/warehouses' },
-  ];
+    { name: 'Total Products', value: stats.active_products || stats.total_products, icon: TruckIcon, gradient: 'from-emerald-400 to-emerald-600', bgLight: 'bg-emerald-50', borderColor: 'border-emerald-200', link: '/products', roles: ['Admin', 'Senior Manager', 'Stock Manager'] },
+    { name: 'Total Orders', value: stats.total_orders, icon: ShoppingBagIcon, gradient: 'from-violet-400 to-violet-600', bgLight: 'bg-violet-50', borderColor: 'border-violet-200', link: '/orders', roles: ['Admin', 'Senior Manager', 'Manager'] },
+    { name: 'Total Deliveries', value: stats.total_deliveries || 0, icon: ClipboardDocumentListIcon, gradient: 'from-orange-400 to-orange-600', bgLight: 'bg-orange-50', borderColor: 'border-orange-200', link: '/deliveries', roles: ['Admin', 'Senior Manager', 'Manager'] },
+    { name: 'Total Shops', value: stats.active_shops || stats.total_shops, icon: HomeIcon, gradient: 'from-amber-400 to-amber-600', bgLight: 'bg-amber-50', borderColor: 'border-amber-200', link: '/shops', roles: ['Admin', 'Senior Manager', 'Manager'] },
+    { name: 'Total Salesmen', value: stats.active_salesmen || stats.total_salesmen, icon: UserGroupIcon, gradient: 'from-indigo-400 to-indigo-600', bgLight: 'bg-indigo-50', borderColor: 'border-indigo-200', link: '/salesmen', roles: ['Admin', 'Senior Manager', 'Manager'] },
+    { name: 'Total Warehouses', value: stats.active_warehouses || stats.total_warehouses, icon: CubeIcon, gradient: 'from-teal-400 to-teal-600', bgLight: 'bg-teal-50', borderColor: 'border-teal-200', link: '/warehouses', roles: ['Admin', 'Senior Manager', 'Manager'] },
+  ].filter((card) => hasRole(...card.roles));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -242,14 +247,16 @@ useEffect(() => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={exportToPDF}
-                className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-red-50 to-red-100 border border-red-200 text-sm font-medium rounded-xl text-red-700 hover:from-red-100 hover:to-red-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
-                title="Export as PDF"
-              >
-                <DocumentArrowDownIcon className="h-5 w-5 mr-2 text-red-600" />
-                Export PDF
-              </button>
+              {canViewFinancialDashboard && (
+                <button
+                  onClick={exportToPDF}
+                  className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-red-50 to-red-100 border border-red-200 text-sm font-medium rounded-xl text-red-700 hover:from-red-100 hover:to-red-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
+                  title="Export as PDF"
+                >
+                  <DocumentArrowDownIcon className="h-5 w-5 mr-2 text-red-600" />
+                  Export PDF
+                </button>
+              )}
               <button
                 onClick={fetchDashboardStats}
                 className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 text-sm font-medium rounded-xl text-gray-700 hover:from-gray-100 hover:to-gray-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200"
@@ -342,7 +349,9 @@ useEffect(() => {
         {/* Section Title */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-xl font-bold text-gray-800">Financial & Dashboard Overview</h3>
+            <h3 className="text-xl font-bold text-gray-800">
+              {canViewFinancialDashboard ? 'Financial & Dashboard Overview' : 'Dashboard Overview'}
+            </h3>
             <p className="text-sm text-gray-500">Key metrics and system statistics</p>
           </div>
           <div className="text-xs text-gray-400 bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100">
@@ -351,32 +360,34 @@ useEffect(() => {
         </div>
 
         {/* Financial Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          {loading ? null : (
-            <>
-              <div className="bg-white rounded-2xl shadow-md p-5 border border-indigo-100 flex flex-col justify-center">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Gross Revenue</p>
-                <p className="text-xl font-bold text-indigo-700">{formatCurrency(stats.total_gross_revenue)}</p>
-              </div>
-              <div className="bg-white rounded-2xl shadow-md p-5 border border-red-100 flex flex-col justify-center">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Returns</p>
-                <p className="text-xl font-bold text-red-600">{formatCurrency(stats.total_return_revenue)}</p>
-              </div>
-              <div className="bg-white rounded-2xl shadow-md p-5 border border-blue-100 flex flex-col justify-center">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Revenue</p>
-                <p className="text-xl font-bold text-blue-700">{formatCurrency(stats.net_revenue)}</p>
-              </div>
-              <div className="bg-white rounded-2xl shadow-md p-5 border border-orange-100 flex flex-col justify-center">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">COGS</p>
-                <p className="text-xl font-bold text-orange-600">{formatCurrency(stats.net_cogs)}</p>
-              </div>
-              <div className="bg-white rounded-2xl shadow-md p-5 border border-emerald-100 flex flex-col justify-center">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Gross Profit</p>
-                <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.gross_profit)}</p>
-              </div>
-            </>
-          )}
-        </div>
+        {canViewFinancialDashboard && (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+            {loading ? null : (
+              <>
+                <div className="bg-white rounded-2xl shadow-md p-5 border border-indigo-100 flex flex-col justify-center">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Gross Revenue</p>
+                  <p className="text-xl font-bold text-indigo-700">{formatCurrency(stats.total_gross_revenue)}</p>
+                </div>
+                <div className="bg-white rounded-2xl shadow-md p-5 border border-red-100 flex flex-col justify-center">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Returns</p>
+                  <p className="text-xl font-bold text-red-600">{formatCurrency(stats.total_return_revenue)}</p>
+                </div>
+                <div className="bg-white rounded-2xl shadow-md p-5 border border-blue-100 flex flex-col justify-center">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Revenue</p>
+                  <p className="text-xl font-bold text-blue-700">{formatCurrency(stats.net_revenue)}</p>
+                </div>
+                <div className="bg-white rounded-2xl shadow-md p-5 border border-orange-100 flex flex-col justify-center">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">COGS</p>
+                  <p className="text-xl font-bold text-orange-600">{formatCurrency(stats.net_cogs)}</p>
+                </div>
+                <div className="bg-white rounded-2xl shadow-md p-5 border border-emerald-100 flex flex-col justify-center">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Gross Profit</p>
+                  <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.gross_profit)}</p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
@@ -430,55 +441,63 @@ useEffect(() => {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button 
-                onClick={() => navigate('/routes')}
-                className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl hover:from-green-100 hover:to-emerald-100 hover:border-green-400 hover:shadow-lg hover:shadow-green-100 transition-all duration-300"
-              >
-                <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <MapPinIcon className="h-6 w-6 text-white" />
-                </div>
-                <div className="text-left">
-                  <span className="font-bold text-gray-800 text-lg">Manage Routes</span>
-                  <p className="text-xs text-gray-500">Configure delivery routes</p>
-                </div>
-              </button>
-              <button 
-                onClick={() => navigate('/stock-returns')}
-                className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl hover:from-amber-100 hover:to-yellow-100 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-100 transition-all duration-300"
-              >
-                <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <ArrowUturnLeftIcon className="h-6 w-6 text-white" />
-                </div>
-                <div className="text-left">
-                  <span className="font-bold text-gray-800 text-lg">Stock Returns</span>
-                  <p className="text-xs text-gray-500">Process delivery returns</p>
-                </div>
-              </button>
-              <button 
-                onClick={() => navigate('/daily-collections')}
-                className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-200 rounded-2xl hover:from-teal-100 hover:to-cyan-100 hover:border-teal-400 hover:shadow-lg hover:shadow-teal-100 transition-all duration-300"
-              >
-                <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <BanknotesIcon className="h-6 w-6 text-white" />
-                </div>
-                <div className="text-left">
-                  <span className="font-bold text-gray-800 text-lg">Daily Collections</span>
-                  <p className="text-xs text-gray-500">Track daily received amounts</p>
-                </div>
-              </button>
-              <button 
-                onClick={() => navigate('/routes/consolidated-bill')}
-                className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl hover:from-indigo-100 hover:to-purple-100 hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-100 transition-all duration-300"
-              >
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <DocumentTextIcon className="h-6 w-6 text-white" />
-                </div>
-                <div className="text-left">
-                  <span className="font-bold text-gray-800 text-lg">Consolidated Bill</span>
-                  <p className="text-xs text-gray-500">Route-wise billing report</p>
-                </div>
-              </button>
-              {(user?.role === 'Admin' || user?.role_name === 'Admin') && (
+              {hasRole('Admin', 'Senior Manager', 'Manager') && (
+                <button 
+                  onClick={() => navigate('/routes')}
+                  className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl hover:from-green-100 hover:to-emerald-100 hover:border-green-400 hover:shadow-lg hover:shadow-green-100 transition-all duration-300"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <MapPinIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-gray-800 text-lg">Manage Routes</span>
+                    <p className="text-xs text-gray-500">Configure delivery routes</p>
+                  </div>
+                </button>
+              )}
+              {hasRole('Admin', 'Senior Manager', 'Manager', 'Stock Manager') && (
+                <button 
+                  onClick={() => navigate('/stock-returns')}
+                  className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl hover:from-amber-100 hover:to-yellow-100 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-100 transition-all duration-300"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <ArrowUturnLeftIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-gray-800 text-lg">Stock Returns</span>
+                    <p className="text-xs text-gray-500">Process delivery returns</p>
+                  </div>
+                </button>
+              )}
+              {hasRole('Admin', 'Senior Manager', 'Accountant') && (
+                <button 
+                  onClick={() => navigate('/daily-collections')}
+                  className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-200 rounded-2xl hover:from-teal-100 hover:to-cyan-100 hover:border-teal-400 hover:shadow-lg hover:shadow-teal-100 transition-all duration-300"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <BanknotesIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-gray-800 text-lg">Daily Collections</span>
+                    <p className="text-xs text-gray-500">Track daily received amounts</p>
+                  </div>
+                </button>
+              )}
+              {hasRole('Admin', 'Senior Manager', 'Manager', 'Accountant') && (
+                <button 
+                  onClick={() => navigate('/routes/consolidated-bill')}
+                  className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl hover:from-indigo-100 hover:to-purple-100 hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-100 transition-all duration-300"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <DocumentTextIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-gray-800 text-lg">Consolidated Bill</span>
+                    <p className="text-xs text-gray-500">Route-wise billing report</p>
+                  </div>
+                </button>
+              )}
+              {hasRole('Admin', 'Senior Manager', 'Manager') && (
                 <button 
                   onClick={() => navigate('/settings/company')}
                   className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-slate-50 to-gray-50 border-2 border-gray-200 rounded-2xl hover:from-slate-100 hover:to-gray-100 hover:border-gray-400 hover:shadow-lg hover:shadow-gray-100 transition-all duration-300"
@@ -489,6 +508,20 @@ useEffect(() => {
                   <div className="text-left">
                     <span className="font-bold text-gray-800 text-lg">Settings</span>
                     <p className="text-xs text-gray-500">System configuration</p>
+                  </div>
+                </button>
+              )}
+              {hasRole('Admin', 'Senior Manager') && (
+                <button
+                  onClick={() => navigate('/users')}
+                  className="group flex items-center justify-center px-6 py-5 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-2xl hover:from-blue-100 hover:to-cyan-100 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-100 transition-all duration-300"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <UsersIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-gray-800 text-lg">Manage Users</span>
+                    <p className="text-xs text-gray-500">Users and credentials</p>
                   </div>
                 </button>
               )}

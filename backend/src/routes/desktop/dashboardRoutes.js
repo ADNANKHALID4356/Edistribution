@@ -9,8 +9,8 @@ const router = express.Router();
 const dashboardController = require('../../controllers/dashboardController');
 const { protect } = require('../../middleware/auth');
 
-// Dashboard stats - NO AUTH for reliability (public stats)
-router.get('/stats', dashboardController.getDashboardStats);
+// Dashboard stats requires authentication
+router.get('/stats', protect, dashboardController.getDashboardStats);
 
 // All other routes require authentication
 router.use(protect);

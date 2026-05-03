@@ -19,28 +19,29 @@ const {
   removeProductFromWarehouse,
   getAvailableProducts
 } = require('../../controllers/warehouseController');
-const { protect } = require('../../middleware/auth');
+const { protect, authorize, ROLES } = require('../../middleware/auth');
+const WAREHOUSE_ROLES = [ROLES.ADMIN, ROLES.SENIOR_MANAGER, ROLES.MANAGER];
 
 // All warehouse routes are protected
-router.get('/', protect, getAllWarehouses);
-router.get('/:id', protect, getWarehouseById);
-router.get('/:id/dependencies', protect, getWarehouseDependencies);
-router.post('/', protect, createWarehouse);
-router.put('/:id', protect, updateWarehouse);
-router.delete('/:id', protect, deleteWarehouse);
+router.get('/', protect, authorize(...WAREHOUSE_ROLES), getAllWarehouses);
+router.get('/:id', protect, authorize(...WAREHOUSE_ROLES), getWarehouseById);
+router.get('/:id/dependencies', protect, authorize(...WAREHOUSE_ROLES), getWarehouseDependencies);
+router.post('/', protect, authorize(...WAREHOUSE_ROLES), createWarehouse);
+router.put('/:id', protect, authorize(...WAREHOUSE_ROLES), updateWarehouse);
+router.delete('/:id', protect, authorize(...WAREHOUSE_ROLES), deleteWarehouse);
 
 // Stock management routes
-router.get('/:id/stock', protect, getWarehouseStock);
-router.put('/:id/stock/:productId', protect, updateStockLevel);
+router.get('/:id/stock', protect, authorize(...WAREHOUSE_ROLES), getWarehouseStock);
+router.put('/:id/stock/:productId', protect, authorize(...WAREHOUSE_ROLES), updateStockLevel);
 
 // Product management routes
-router.get('/:id/available-products', protect, getAvailableProducts);
-router.post('/:id/products', protect, addProductToWarehouse);
-router.post('/:id/products/bulk', protect, addProductsBulkToWarehouse);
-router.delete('/:id/products/:productId', protect, removeProductFromWarehouse);
+router.get('/:id/available-products', protect, authorize(...WAREHOUSE_ROLES), getAvailableProducts);
+router.post('/:id/products', protect, authorize(...WAREHOUSE_ROLES), addProductToWarehouse);
+router.post('/:id/products/bulk', protect, authorize(...WAREHOUSE_ROLES), addProductsBulkToWarehouse);
+router.delete('/:id/products/:productId', protect, authorize(...WAREHOUSE_ROLES), removeProductFromWarehouse);
 
 // Stock movements routes
-router.get('/:id/movements', protect, getStockMovements);
-router.post('/:id/movements', protect, recordStockMovement);
+router.get('/:id/movements', protect, authorize(...WAREHOUSE_ROLES), getStockMovements);
+router.post('/:id/movements', protect, authorize(...WAREHOUSE_ROLES), recordStockMovement);
 
 module.exports = router;

@@ -2,6 +2,33 @@ const { verifyToken } = require('../utils/generateToken');
 const User = require('../models/User');
 const Session = require('../models/Session');
 
+const ROLES = Object.freeze({
+  ADMIN: 'Admin',
+  SENIOR_MANAGER: 'Senior Manager',
+  MANAGER: 'Manager',
+  ACCOUNTANT: 'Accountant',
+  STOCK_MANAGER: 'Stock Manager',
+  SALESMAN: 'Salesman'
+});
+
+const ROLE_ALIASES = Object.freeze({
+  manager: ROLES.MANAGER,
+  warehouse: ROLES.STOCK_MANAGER,
+  viewer: ROLES.ACCOUNTANT,
+  admin: ROLES.ADMIN,
+  'senior manager': ROLES.SENIOR_MANAGER,
+  'stock manager': ROLES.STOCK_MANAGER,
+  accountant: ROLES.ACCOUNTANT,
+  'sales manager': ROLES.MANAGER,
+  'operations manager': ROLES.MANAGER,
+  salesman: ROLES.SALESMAN
+});
+
+const normalizeRoleName = (roleName) => {
+  const normalized = String(roleName || '').trim().toLowerCase();
+  return ROLE_ALIASES[normalized] || roleName || '';
+};
+
 // Protect routes - verify JWT token
 exports.protect = async (req, res, next) => {
   console.log('\n🔐 AUTH MIDDLEWARE - Checking authentication...');
@@ -86,7 +113,11 @@ exports.protect = async (req, res, next) => {
     }
 
     // Add user to request object
-    req.user = user;
+    req.user = {
+      ...user,
+      role_name: normalizeRoleName(user.role_name),
+      role: normalizeRoleName(user.role_name)
+    };
     console.log('✅ Authentication successful, proceeding to route handler...\n');
     next();
 
@@ -111,13 +142,19 @@ exports.authorize = (...roles) => {
       });
     }
 
-    if (!roles.includes(req.user.role_name)) {
+    const allowedRoles = roles.map(normalizeRoleName);
+    const userRole = normalizeRoleName(req.user.role_name || req.user.role);
+
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
-        message: `Role '${req.user.role_name}' is not authorized to access this route`
+        message: `Role '${userRole}' is not authorized to access this route`
       });
     }
 
     next();
   };
 };
+
+exports.ROLES = ROLES;
+exports.normalizeRoleName = normalizeRoleName;

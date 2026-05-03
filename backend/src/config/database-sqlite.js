@@ -53,6 +53,43 @@ function safeAddColumn(tableName, columnName, columnDef) {
   return false;
 }
 
+function ensureCanonicalRoles() {
+  console.log('👥 Aligning role catalog...');
+
+  const roleDefinitions = [
+    ['Admin', 'Full system access', 'all'],
+    ['Senior Manager', 'Admin-equivalent business access', 'all'],
+    ['Manager', 'Operational access without financial dashboards or user management', JSON.stringify(['operations', 'inventory', 'delivery'])],
+    ['Salesman', 'Field sales and mobile app', JSON.stringify(['orders', 'shops', 'mobile'])],
+    ['Accountant', 'Ledger and daily collection payments access', JSON.stringify(['ledger', 'daily_collections', 'payments'])],
+    ['Stock Manager', 'Products stock and stock returns access', JSON.stringify(['products', 'stock', 'stock_returns'])]
+  ];
+
+  const upsertRole = db.prepare(`
+    INSERT INTO roles (role_name, description, permissions)
+    VALUES (?, ?, ?)
+    ON CONFLICT(role_name) DO UPDATE SET
+      description = excluded.description,
+      permissions = excluded.permissions
+  `);
+
+  for (const role of roleDefinitions) {
+    upsertRole.run(...role);
+  }
+
+  db.exec(`
+    UPDATE users
+    SET role_id = (SELECT id FROM roles WHERE role_name = 'Stock Manager')
+    WHERE role_id = (SELECT id FROM roles WHERE role_name = 'Warehouse')
+  `);
+
+  db.exec(`
+    UPDATE users
+    SET role_id = (SELECT id FROM roles WHERE role_name = 'Accountant')
+    WHERE role_id = (SELECT id FROM roles WHERE role_name = 'Viewer')
+  `);
+}
+
 // Migrate new feature tables (stock returns, daily collections, company_name)
 function migrateNewFeatures() {
   console.log('🔄 Checking new feature tables...');
@@ -137,6 +174,7 @@ function migrateNewFeatures() {
   try {
     const dcCols = db.pragma('table_info(daily_collections)');
     const hasShopId = dcCols.some(c => c.name === 'shop_id');
+    const hasReceivedFrom = dcCols.some(c => c.name === 'received_from');
     if (dcCols.length > 0 && !hasShopId) {
       db.exec('DROP TABLE IF EXISTS daily_collections');
       console.log('   🔄 Recreating daily_collections with full schema');
@@ -153,6 +191,7 @@ function migrateNewFeatures() {
         payment_method TEXT DEFAULT 'cash',
         reference_number TEXT,
         description TEXT,
+        received_from TEXT,
         notes TEXT,
         created_by INTEGER,
         created_by_name TEXT,
@@ -160,6 +199,10 @@ function migrateNewFeatures() {
         updated_at DATETIME DEFAULT (datetime('now'))
       )
     `);
+    if (dcCols.length > 0 && !hasReceivedFrom) {
+      db.exec('ALTER TABLE daily_collections ADD COLUMN received_from TEXT');
+      console.log('   ✅ Added received_from to daily_collections');
+    }
     console.log('   ✅ daily_collections table ready');
   } catch (e) { console.log('   ⚠️ daily_collections:', e.message); }
 
@@ -480,6 +523,37 @@ function migrateWarehousesTable() {
   }
 }
 
+// Migrate shops table to align with controller queries and inserts
+function migrateShopsTable() {
+  console.log('🔄 Checking shops table schema...');
+
+  const shopColumns = [
+    // Required by shopController INSERT/UPDATE and listing joins
+    ['salesman_id', 'INTEGER'],
+    // Keep legacy data shape aligned with frontend form payload
+    ['alternate_phone', 'TEXT'],
+    ['email', 'TEXT'],
+    ['shop_type', 'TEXT'],
+    ['business_license', 'TEXT'],
+    ['tax_registration', 'TEXT'],
+    ['notes', 'TEXT'],
+    ['is_active', 'INTEGER DEFAULT 1']
+  ];
+
+  let columnsAdded = 0;
+  for (const [colName, colDef] of shopColumns) {
+    if (safeAddColumn('shops', colName, colDef)) {
+      columnsAdded++;
+    }
+  }
+
+  if (columnsAdded > 0) {
+    console.log(`✅ Shops schema migration complete - added ${columnsAdded} columns`);
+  } else {
+    console.log('✅ Shops schema is up to date');
+  }
+}
+
 // Migrate company_settings table — ensures column names match MySQL production schema
 // (009_company_settings.sql). Adds any missing MySQL-named columns and the new
 // extended fields. Safe to run on both fresh and existing databases.
@@ -558,17 +632,7 @@ function initializeDatabase() {
     )
   `);
 
-  // Insert default roles
-  const rolesCount = db.prepare('SELECT COUNT(*) as count FROM roles').get();
-  if (rolesCount.count === 0) {
-    console.log('👥 Creating default roles...');
-    const insertRole = db.prepare('INSERT INTO roles (id, role_name, description, permissions) VALUES (?, ?, ?, ?)');
-    insertRole.run(1, 'Admin', 'Full system access', JSON.stringify(['all']));
-    insertRole.run(2, 'Manager', 'Product and order management', JSON.stringify(['products', 'orders', 'reports']));
-    insertRole.run(3, 'Salesman', 'Field sales and mobile app', JSON.stringify(['orders', 'shops', 'mobile']));
-    insertRole.run(4, 'Warehouse', 'Stock and delivery management', JSON.stringify(['stock', 'deliveries']));
-    console.log('✅ Default roles created');
-  }
+  ensureCanonicalRoles();
 
   // Salesmen table (for salesman profile data)
   db.exec(`
@@ -1154,6 +1218,7 @@ function initializeDatabase() {
   migrateDeliveriesTable();
   migrateWarehousesTable();
   migrateOrdersTable(); // NEW: Add delivery tracking columns
+  migrateShopsTable();  // NEW: Ensure shops table has salesman_id and related fields
 
   // MIGRATION: New feature tables and columns
   migrateNewFeatures();
@@ -1162,7 +1227,18 @@ function initializeDatabase() {
   migrateCompanySettingsTable();
 
   // Check if admin user exists, if not create default admin
-  const adminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE role_id = ?').get(1);
+  const adminExists = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM users u
+    JOIN roles r ON r.id = u.role_id
+    WHERE r.role_name = 'Admin'
+  `).get();
+  const existingAdminUser = db.prepare(`
+    SELECT id
+    FROM users
+    WHERE lower(username) = 'admin'
+    LIMIT 1
+  `).get();
   
   function migrateOrderItemsTableSchema() {
     console.log('🔄 Checking order_items table schema...');
@@ -1183,16 +1259,21 @@ function initializeDatabase() {
   }
   migrateOrderItemsTableSchema();
 
-  if (adminExists.count === 0) {
+  const adminRole = db.prepare('SELECT id FROM roles WHERE role_name = ?').get('Admin');
+  if (adminRole?.id && existingAdminUser?.id) {
+    db.prepare('UPDATE users SET role_id = ? WHERE id = ?').run(adminRole.id, existingAdminUser.id);
+  }
+
+  if (adminExists.count === 0 && !existingAdminUser?.id) {
     console.log('👤 Creating default admin user...');
     const bcrypt = require('bcryptjs');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
-    
+
     db.prepare(`
       INSERT INTO users (username, password, email, full_name, phone, role_id, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run('admin', hashedPassword, 'admin@system.com', 'System Administrator', null, 1, 1);
-    
+    `).run('admin', hashedPassword, 'admin@system.com', 'System Administrator', null, adminRole?.id || 1, 1);
+
     console.log('✅ Default admin created (username: admin, password: admin123)');
   }
 }

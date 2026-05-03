@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import invoiceService from '../../services/invoiceService';
+import settingsService from '../../services/settingsService';
 
 const InvoiceDetailModal = ({ invoiceId, onClose, onPaymentRecorded }) => {
   const [invoice, setInvoice] = useState(null);
@@ -35,8 +36,161 @@ const InvoiceDetailModal = ({ invoiceId, onClose, onPaymentRecorded }) => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!invoice) return;
+
+    let company = null;
+    try {
+      const resp = await settingsService.getCompanySettings();
+      company = resp?.data || resp?.company || resp || null;
+    } catch (e) {
+      company = null;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const items = invoice.items || [];
+    const subtotal = parseFloat(invoice.subtotal || 0);
+    const discountAmount = parseFloat(invoice.discount_amount || 0);
+    const taxAmount = parseFloat(invoice.tax_amount || 0);
+    const shipping = parseFloat(invoice.shipping_charges || 0);
+    const other = parseFloat(invoice.other_charges || 0);
+    const roundOff = parseFloat(invoice.round_off || 0);
+    const net = parseFloat(invoice.net_amount || 0);
+    const prevBal = parseFloat(invoice.previous_balance || 0);
+
+    const safe = (v) => (v === undefined || v === null ? '' : String(v));
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice - ${safe(invoice.invoice_number)}</title>
+          <meta charset="utf-8">
+          <style>
+            @page { size: A4; margin: 12mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0; padding: 0;
+              font-family: 'Segoe UI', Arial, sans-serif;
+              font-size: 10pt;
+              color: #111827;
+              background: #fff;
+              line-height: 1.35;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #111827;
+              padding-bottom: 10px;
+              margin-bottom: 14px;
+            }
+            .company-name { font-size: 15pt; font-weight: 800; }
+            .muted { color: #6b7280; font-size: 9pt; }
+            .doc-title { font-size: 14pt; font-weight: 800; text-align: right; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+            .box { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 12px; }
+            .box-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; color: #111827; margin-bottom: 6px; }
+            .row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+            .label { color: #374151; font-weight: 700; }
+            .value { color: #111827; text-align: right; }
+            table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 12px; }
+            thead th { background: #111827; color: #fff; text-transform: uppercase; font-size: 8pt; letter-spacing: .02em; padding: 7px 8px; text-align: left; }
+            tbody td { border-bottom: 1px solid #e5e7eb; padding: 7px 8px; }
+            td.right, th.right { text-align: right; }
+            .summary { width: 55%; margin-left: auto; }
+            .sum-row { display:flex; justify-content: space-between; padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 9.5pt; }
+            .sum-row.total { background:#111827; color:#fff; font-size: 12pt; font-weight: 900; border-bottom: none; margin-top: 8px; border-radius: 6px; padding: 10px 12px; }
+            .foot { margin-top: 18px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 8.5pt; color:#6b7280; text-align: center; }
+            @media print { .no-print { display:none; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="company-name">${safe(company?.company_name || 'COMPANY')}</div>
+              <div class="muted">${safe(company?.company_address || '')}</div>
+              <div class="muted">${company?.company_phone ? `Tel: ${safe(company.company_phone)}` : ''} ${company?.company_email ? ` | Email: ${safe(company.company_email)}` : ''}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="doc-title">INVOICE</div>
+              <div style="font-weight:800">${safe(invoice.invoice_number)}</div>
+              <div class="muted">Date: ${safe(invoiceService.formatDate(invoice.invoice_date))}</div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="box">
+              <div class="box-title">Customer</div>
+              <div class="row"><div class="label">Shop</div><div class="value">${safe(invoice.shop_name)}</div></div>
+              <div class="row"><div class="label">Salesman</div><div class="value">${safe(invoice.salesman_name)}</div></div>
+              <div class="row"><div class="label">Payment</div><div class="value">${safe(invoice.payment_type || '').replace('_',' ')}</div></div>
+            </div>
+            <div class="box">
+              <div class="box-title">Invoice</div>
+              <div class="row"><div class="label">Status</div><div class="value">${safe(invoice.status)}</div></div>
+              <div class="row"><div class="label">Payment Status</div><div class="value">${safe(invoice.payment_status)}</div></div>
+              <div class="row"><div class="label">Due Date</div><div class="value">${safe(invoiceService.formatDate(invoice.due_date))}</div></div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width:32px">#</th>
+                <th>Product</th>
+                <th style="width:70px">Code</th>
+                <th class="right" style="width:60px">Qty</th>
+                <th class="right" style="width:85px">Unit</th>
+                <th class="right" style="width:85px">Discount</th>
+                <th class="right" style="width:95px">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((it, idx) => {
+                const qty = parseFloat(it.quantity || 0);
+                const price = parseFloat(it.unit_price || 0);
+                const discPct = parseFloat(it.discount_percentage || 0);
+                const total = parseFloat(it.total_amount || it.total_price || 0);
+                return `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${safe(it.product_name)}</td>
+                    <td>${safe(it.product_code || '-')}</td>
+                    <td class="right">${qty}</td>
+                    <td class="right">Rs. ${price.toFixed(2)}</td>
+                    <td class="right">${discPct > 0 ? discPct.toFixed(1) + '%' : '-'}</td>
+                    <td class="right"><strong>Rs. ${total.toFixed(2)}</strong></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <div class="sum-row"><span>Subtotal</span><span>Rs. ${subtotal.toFixed(2)}</span></div>
+            ${discountAmount ? `<div class="sum-row"><span>Discount</span><span>- Rs. ${discountAmount.toFixed(2)}</span></div>` : ''}
+            ${taxAmount ? `<div class="sum-row"><span>Tax</span><span>+ Rs. ${taxAmount.toFixed(2)}</span></div>` : ''}
+            ${shipping ? `<div class="sum-row"><span>Shipping</span><span>+ Rs. ${shipping.toFixed(2)}</span></div>` : ''}
+            ${other ? `<div class="sum-row"><span>Other</span><span>+ Rs. ${other.toFixed(2)}</span></div>` : ''}
+            ${roundOff ? `<div class="sum-row"><span>Round Off</span><span>Rs. ${roundOff.toFixed(2)}</span></div>` : ''}
+            ${prevBal ? `<div class="sum-row"><span>Previous Balance</span><span>+ Rs. ${prevBal.toFixed(2)}</span></div>` : ''}
+            <div class="sum-row total"><span>NET AMOUNT</span><span>Rs. ${(net + prevBal).toFixed(2)}</span></div>
+          </div>
+
+          <div class="foot">
+            Printed: ${new Date().toLocaleString('en-GB')}
+          </div>
+
+          <script>
+            window.onload = function() { setTimeout(function() { window.print(); }, 250); };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   if (loading) {

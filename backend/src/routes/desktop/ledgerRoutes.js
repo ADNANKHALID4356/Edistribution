@@ -9,7 +9,9 @@
 const express = require('express');
 const router = express.Router();
 const ledgerController = require('../../controllers/ledgerController');
-const { protect, authorize } = require('../../middleware/auth');
+const { protect, authorize, ROLES } = require('../../middleware/auth');
+const LEDGER_PAYMENT_ROLES = [ROLES.ADMIN, ROLES.SENIOR_MANAGER, ROLES.ACCOUNTANT];
+const LEDGER_ANALYTICS_ROLES = [ROLES.ADMIN, ROLES.SENIOR_MANAGER];
 
 // All routes require authentication
 router.use(protect);
@@ -25,7 +27,7 @@ router.use(protect);
  * @query   page, limit, start_date, end_date, transaction_type
  */
 router.get('/shop/:shopId', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_PAYMENT_ROLES), 
   ledgerController.getShopLedger
 );
 
@@ -36,7 +38,7 @@ router.get('/shop/:shopId',
  * @query   start_date, end_date
  */
 router.get('/statement/:shopId', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_PAYMENT_ROLES), 
   ledgerController.getAccountStatement
 );
 
@@ -47,7 +49,7 @@ router.get('/statement/:shopId',
  * @body    shop_id, amount, type (debit/credit), description, notes
  */
 router.post('/adjustment', 
-  authorize('Admin'), 
+  authorize(...LEDGER_PAYMENT_ROLES), 
   ledgerController.createAdjustment
 );
 
@@ -61,7 +63,7 @@ router.post('/adjustment',
  * @access  Admin, Manager
  */
 router.get('/balance/:shopId', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_ANALYTICS_ROLES), 
   ledgerController.getShopBalance
 );
 
@@ -72,7 +74,7 @@ router.get('/balance/:shopId',
  * @query   page, limit, sort_by, order
  */
 router.get('/balance', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_ANALYTICS_ROLES), 
   ledgerController.getAllShopsBalance
 );
 
@@ -83,7 +85,7 @@ router.get('/balance',
  * @body    shop_id, order_amount
  */
 router.post('/check-credit', 
-  authorize('Admin', 'Manager', 'Salesman'), 
+  authorize(ROLES.ADMIN, ROLES.SENIOR_MANAGER, ROLES.SALESMAN), 
   ledgerController.checkCreditLimit
 );
 
@@ -97,7 +99,7 @@ router.post('/check-credit',
  * @access  Admin, Manager
  */
 router.get('/aging/:shopId', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_ANALYTICS_ROLES), 
   ledgerController.getShopAging
 );
 
@@ -107,7 +109,7 @@ router.get('/aging/:shopId',
  * @access  Admin, Manager
  */
 router.get('/aging', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_ANALYTICS_ROLES), 
   ledgerController.getAllAgingAnalysis
 );
 
@@ -122,7 +124,7 @@ router.get('/aging',
  * @body    shop_id, amount, payment_method, payment_date, reference_number, notes
  */
 router.post('/payment', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_PAYMENT_ROLES), 
   ledgerController.recordPayment
 );
 
@@ -133,7 +135,7 @@ router.post('/payment',
  * @query   page, limit, start_date, end_date
  */
 router.get('/payments/shop/:shopId', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_PAYMENT_ROLES), 
   ledgerController.getShopPayments
 );
 
@@ -147,7 +149,7 @@ router.get('/payments/shop/:shopId',
  * @access  Admin, Manager
  */
 router.post('/shop/:shopId/recalculate', 
-  authorize('Admin', 'Manager'), 
+  authorize(...LEDGER_ANALYTICS_ROLES), 
   ledgerController.recalculateBalances
 );
 
@@ -159,7 +161,7 @@ router.post('/shop/:shopId/recalculate',
  * @note    This only deletes ledger entries, NOT invoices or payments
  */
 router.delete('/shop/:shopId/history', 
-  authorize('Admin'), 
+  authorize(...LEDGER_ANALYTICS_ROLES), 
   ledgerController.clearTransactionHistory
 );
 

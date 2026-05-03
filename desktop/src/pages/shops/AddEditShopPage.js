@@ -140,7 +140,8 @@ const AddEditShopPage = () => {
         ...formData,
         credit_limit: parseFloat(formData.credit_limit),
         opening_balance: parseFloat(formData.opening_balance),
-        route_id: formData.route_id ? parseInt(formData.route_id) : null
+        route_id: formData.route_id ? parseInt(formData.route_id, 10) : null,
+        salesman_id: formData.salesman_id ? parseInt(formData.salesman_id, 10) : null
       };
 
       if (isEditMode) {

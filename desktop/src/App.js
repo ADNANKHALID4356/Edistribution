@@ -30,6 +30,16 @@ import LedgerDashboardPage from './pages/ledger/LedgerDashboardPage';
 import StockReturnsPage from './pages/returns/StockReturnsPage';
 import DailyCollectionsPage from './pages/collections/DailyCollectionsPage';
 import RouteConsolidatedBillPage from './pages/routes/RouteConsolidatedBillPage';
+import UserManagementPage from './pages/users/UserManagementPage';
+
+const ADMIN_EQUIVALENT_ROLES = ['Admin', 'Senior Manager'];
+const NON_FINANCIAL_MANAGER_ROLES = [...ADMIN_EQUIVALENT_ROLES, 'Manager'];
+const FINANCE_ROLES = ['Admin', 'Senior Manager', 'Accountant'];
+const SALESMAN_LEDGER_ACCESS_ROLES = [...NON_FINANCIAL_MANAGER_ROLES, 'Accountant'];
+const CONSOLIDATED_BILL_ROLES = [...NON_FINANCIAL_MANAGER_ROLES, 'Accountant'];
+const PRODUCT_STOCK_ROLES = [...NON_FINANCIAL_MANAGER_ROLES, 'Stock Manager'];
+const STOCK_RETURN_ROLES = [...NON_FINANCIAL_MANAGER_ROLES, 'Stock Manager'];
+const FINANCE_ANALYTICS_ROLES = ['Admin', 'Senior Manager'];
 
 function App() {
   return (
@@ -50,7 +60,7 @@ function App() {
           <Route
             path="/products"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={PRODUCT_STOCK_ROLES}>
                 <ProductListPage />
               </ProtectedRoute>
             }
@@ -58,7 +68,7 @@ function App() {
           <Route
             path="/products/add"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={PRODUCT_STOCK_ROLES}>
                 <AddProductPage />
               </ProtectedRoute>
             }
@@ -66,7 +76,7 @@ function App() {
           <Route
             path="/products/edit/:id"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={PRODUCT_STOCK_ROLES}>
                 <EditProductPage />
               </ProtectedRoute>
             }
@@ -74,7 +84,7 @@ function App() {
           <Route
             path="/products/bulk-import"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={PRODUCT_STOCK_ROLES}>
                 <BulkImportPage />
               </ProtectedRoute>
             }
@@ -82,7 +92,7 @@ function App() {
           <Route
             path="/products/add-stock"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={PRODUCT_STOCK_ROLES}>
                 <AddStockPage />
               </ProtectedRoute>
             }
@@ -91,7 +101,7 @@ function App() {
           <Route
             path="/routes"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <RouteManagementPage />
               </ProtectedRoute>
             }
@@ -100,7 +110,7 @@ function App() {
           <Route
             path="/shops"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <ShopListingPage />
               </ProtectedRoute>
             }
@@ -108,7 +118,7 @@ function App() {
           <Route
             path="/shops/add"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <AddEditShopPage />
               </ProtectedRoute>
             }
@@ -116,7 +126,7 @@ function App() {
           <Route
             path="/shops/edit/:id"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <AddEditShopPage />
               </ProtectedRoute>
             }
@@ -125,7 +135,7 @@ function App() {
           <Route
             path="/salesmen"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={SALESMAN_LEDGER_ACCESS_ROLES}>
                 <SalesmanListingPage />
               </ProtectedRoute>
             }
@@ -133,7 +143,7 @@ function App() {
           <Route
             path="/salesmen/add"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <AddEditSalesmanPage />
               </ProtectedRoute>
             }
@@ -141,7 +151,7 @@ function App() {
           <Route
             path="/salesmen/edit/:id"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <AddEditSalesmanPage />
               </ProtectedRoute>
             }
@@ -150,7 +160,7 @@ function App() {
           <Route
             path="/orders"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <OrderManagementPage />
               </ProtectedRoute>
             }
@@ -158,7 +168,7 @@ function App() {
           <Route
             path="/orders/history"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <OrderManagementPage />
               </ProtectedRoute>
             }
@@ -186,8 +196,16 @@ function App() {
           <Route
             path="/settings/company"
             element={
-              <ProtectedRoute allowedRoles={['Admin']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <CompanySettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_EQUIVALENT_ROLES}>
+                <UserManagementPage />
               </ProtectedRoute>
             }
           />
@@ -195,7 +213,7 @@ function App() {
           <Route
             path="/warehouses"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <WarehouseManagementPage />
               </ProtectedRoute>
             }
@@ -204,7 +222,7 @@ function App() {
           <Route
             path="/deliveries"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <DeliveryTrackingPage />
               </ProtectedRoute>
             }
@@ -212,7 +230,7 @@ function App() {
           <Route
             path="/deliveries/new"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={NON_FINANCIAL_MANAGER_ROLES}>
                 <DeliveryChallanPage />
               </ProtectedRoute>
             }
@@ -221,7 +239,7 @@ function App() {
           <Route
             path="/ledger/dashboard"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={FINANCE_ROLES}>
                 <LedgerDashboardPage />
               </ProtectedRoute>
             }
@@ -229,7 +247,7 @@ function App() {
           <Route
             path="/ledger/shop/:shopId"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={FINANCE_ROLES}>
                 <ShopLedgerPage />
               </ProtectedRoute>
             }
@@ -237,7 +255,7 @@ function App() {
           <Route
             path="/ledger/payment/new"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={FINANCE_ROLES}>
                 <PaymentRecordPage />
               </ProtectedRoute>
             }
@@ -245,7 +263,7 @@ function App() {
           <Route
             path="/ledger/aging"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={FINANCE_ANALYTICS_ROLES}>
                 <AgingReportPage />
               </ProtectedRoute>
             }
@@ -254,7 +272,7 @@ function App() {
           <Route
             path="/stock-returns"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={STOCK_RETURN_ROLES}>
                 <StockReturnsPage />
               </ProtectedRoute>
             }
@@ -263,7 +281,7 @@ function App() {
           <Route
             path="/daily-collections"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={FINANCE_ROLES}>
                 <DailyCollectionsPage />
               </ProtectedRoute>
             }
@@ -272,7 +290,7 @@ function App() {
           <Route
             path="/routes/consolidated-bill"
             element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={CONSOLIDATED_BILL_ROLES}>
                 <RouteConsolidatedBillPage />
               </ProtectedRoute>
             }

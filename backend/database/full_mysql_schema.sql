@@ -704,9 +704,11 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Roles
 INSERT INTO roles (id, role_name, description, permissions) VALUES
 (1, 'Admin', 'Full system access', 'all'),
-(2, 'Manager', 'Office management access', 'manage_orders,manage_inventory,view_reports'),
-(3, 'Salesman', 'Field salesman access', 'create_orders,view_own_orders,view_products'),
-(4, 'Viewer', 'Read-only access', 'view_only');
+(2, 'Senior Manager', 'Admin-equivalent business access', 'all'),
+(3, 'Manager', 'Operational access without financial dashboards or user management', 'operations,inventory,delivery'),
+(4, 'Salesman', 'Field salesman access', 'create_orders,view_own_orders,view_products'),
+(5, 'Accountant', 'Payments and ledger operations', 'ledger,daily_collections,payments'),
+(6, 'Stock Manager', 'Products stock and stock returns access', 'products,stock,stock_returns');
 
 -- Default Admin User (password: admin123)
 INSERT INTO users (id, username, password, email, full_name, phone, role_id, is_active) VALUES

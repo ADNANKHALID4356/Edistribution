@@ -6,10 +6,23 @@
 
 const db = require('./database');
 
+const ROLE_DEFINITIONS = [
+  { role_name: 'Admin', description: 'Full system access', permissions: 'all' },
+  { role_name: 'Senior Manager', description: 'Admin-equivalent business access', permissions: 'all' },
+  { role_name: 'Manager', description: 'Operational access without financial dashboards or user management', permissions: 'operations,inventory,delivery' },
+  { role_name: 'Accountant', description: 'Ledger and daily collection payments access', permissions: 'ledger,daily_collections,payments' },
+  { role_name: 'Stock Manager', description: 'Products stock and stock returns access', permissions: 'products,stock,stock_returns' },
+  // Legacy operational role retained for compatibility with field workflows.
+  { role_name: 'Salesman', description: 'Field sales and mobile app access', permissions: 'orders,shops,mobile' }
+];
+
 async function runMigrations() {
   console.log('🔄 Running auto-migrations...');
 
   try {
+    // 0. Ensure role catalog and map legacy role names
+    await ensureCanonicalRoles();
+
     // 1. Add company_name to products
     await safeAddColumn('products', 'company_name', 'VARCHAR(200) DEFAULT NULL', 'brand');
 
@@ -105,6 +118,33 @@ async function runMigrations() {
   } catch (error) {
     console.error('⚠️ Migration error (non-fatal):', error.message);
     // Don't throw - server should still start
+  }
+}
+
+async function ensureCanonicalRoles() {
+  try {
+    for (const role of ROLE_DEFINITIONS) {
+      await db.query(
+        `INSERT INTO roles (role_name, description, permissions)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           description = VALUES(description),
+           permissions = VALUES(permissions)`,
+        [role.role_name, role.description, role.permissions]
+      );
+    }
+
+    await db.query(
+      `UPDATE users u
+       JOIN roles old_role ON u.role_id = old_role.id
+       JOIN roles new_role ON new_role.role_name = 'Stock Manager'
+       SET u.role_id = new_role.id
+       WHERE old_role.role_name = 'Warehouse'`
+    );
+
+    console.log('   ✅ Role catalog aligned');
+  } catch (e) {
+    console.log(`   ⚠️ roles migration: ${e.message}`);
   }
 }
 

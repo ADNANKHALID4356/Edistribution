@@ -244,19 +244,19 @@ const DeliveryTrackingPage = () => {
             
             @page {
               size: A4;
-              margin: 15mm 15mm 15mm 15mm;
+              margin: 12mm;
             }
             
             body {
               font-family: 'Segoe UI', Arial, sans-serif;
-              width: 210mm;
-              min-height: 297mm;
-              margin: 0 auto;
-              padding: 15mm;
+              width: auto;
+              min-height: auto;
+              margin: 0;
+              padding: 0;
               background: white;
               color: #1a1a1a;
-              font-size: 11pt;
-              line-height: 1.5;
+              font-size: 10pt;
+              line-height: 1.35;
             }
             
             .header {
@@ -269,7 +269,7 @@ const DeliveryTrackingPage = () => {
             }
             .header-left { flex: 1; }
             .company-name {
-              font-size: 22pt;
+              font-size: 16pt;
               font-weight: 700;
               color: #1e40af;
               margin-bottom: 4px;
@@ -283,18 +283,18 @@ const DeliveryTrackingPage = () => {
               text-align: right;
             }
             .doc-title {
-              font-size: 18pt;
+              font-size: 14pt;
               font-weight: 700;
               color: #1e40af;
               margin-bottom: 5px;
             }
             .challan-number {
-              font-size: 12pt;
+              font-size: 10pt;
               font-weight: 600;
               color: #333;
             }
             .challan-date {
-              font-size: 10pt;
+              font-size: 9pt;
               color: #666;
               margin-top: 3px;
             }
@@ -334,7 +334,7 @@ const DeliveryTrackingPage = () => {
               display: flex;
               justify-content: space-between;
               padding: 2px 0;
-              font-size: 10pt;
+              font-size: 9pt;
             }
             .info-label {
               font-weight: 600;
@@ -350,7 +350,7 @@ const DeliveryTrackingPage = () => {
               width: 100%;
               border-collapse: collapse;
               margin-bottom: 20px;
-              font-size: 10pt;
+              font-size: 9pt;
             }
             .items-table thead th {
               background: #1e40af;
@@ -384,7 +384,7 @@ const DeliveryTrackingPage = () => {
               display: flex;
               justify-content: space-between;
               padding: 5px 10px;
-              font-size: 10pt;
+              font-size: 9.5pt;
             }
             .fin-row.border { border-bottom: 1px solid #e5e7eb; }
             .fin-row.discount { color: #dc2626; }
@@ -392,7 +392,7 @@ const DeliveryTrackingPage = () => {
               background: #1e40af;
               color: white;
               font-weight: 700;
-              font-size: 13pt;
+              font-size: 12pt;
               padding: 10px 15px;
               border-radius: 5px;
               margin-top: 8px;

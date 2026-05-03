@@ -103,15 +103,23 @@ function createWindow() {
     show: false, // Don't show until ready
   });
 
-  // Load the built React app from file system using loadFile which is more reliable
-  const filePath = path.join(__dirname, 'build', 'index.html');
-  console.log('Loading file:', filePath);
-  
-  if (!fs.existsSync(filePath)) {
-    console.error('❌ ERROR: index.html not found at:', filePath);
-    mainWindow.loadURL('data:text/html,<h1>Error: Build folder not found. Please run: npm run build</h1>');
+  // In local development, prefer live dev-server build.
+  const devUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000';
+  const shouldUseDevServer = !app.isPackaged;
+
+  if (shouldUseDevServer) {
+    console.log('Loading development URL:', devUrl);
+    mainWindow.loadURL(devUrl);
   } else {
-    mainWindow.loadFile(filePath);
+    const filePath = path.join(__dirname, 'build', 'index.html');
+    console.log('Loading file:', filePath);
+
+    if (!fs.existsSync(filePath)) {
+      console.error('❌ ERROR: index.html not found at:', filePath);
+      mainWindow.loadURL('data:text/html,<h1>Error: Build folder not found. Please run: npm run build</h1>');
+    } else {
+      mainWindow.loadFile(filePath);
+    }
   }
 
   // Show window when ready - with timeout fallback

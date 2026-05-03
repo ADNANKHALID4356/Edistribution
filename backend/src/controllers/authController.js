@@ -8,7 +8,7 @@ const { generateToken } = require('../utils/generateToken');
 // @access  Public (but should be Admin only in production)
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, full_name, phone, role_id } = req.body;
+    const { username, email, password, full_name, phone, role_id, role_name } = req.body;
 
     // Validation
     if (!username || !email || !password) {
@@ -55,6 +55,26 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    let resolvedRoleId = role_id;
+
+    // Allow role assignment by role name for admin-led provisioning flows.
+    if (!resolvedRoleId && role_name) {
+      const role = await User.findRoleByName(role_name);
+      if (!role) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid role_name'
+        });
+      }
+      resolvedRoleId = role.id;
+    }
+
+    // Default role remains Salesman when role is not provided.
+    if (!resolvedRoleId) {
+      const defaultRole = await User.findRoleByName('Salesman');
+      resolvedRoleId = defaultRole ? defaultRole.id : 3;
+    }
+
     // Create user
     const userId = await User.create({
       username,
@@ -62,7 +82,7 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       full_name: full_name || username,
       phone: phone || null,
-      role_id: role_id || 3 // Default to Salesman role
+      role_id: resolvedRoleId
     });
 
     // Fetch created user

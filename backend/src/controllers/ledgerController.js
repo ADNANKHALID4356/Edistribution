@@ -428,15 +428,6 @@ exports.clearTransactionHistory = async (req, res) => {
     const { shopId } = req.params;
     const { retain_opening_balance } = req.body;
     
-    // Only admins can clear transaction history
-    const userRole = req.user.role_name || req.user.role;
-    if (userRole !== 'admin' && userRole !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only administrators can clear transaction history'
-      });
-    }
-    
     console.log(`🗑️ [LEDGER CONTROLLER] Clearing history for shop ${shopId} (retain_balance: ${retain_opening_balance})...`);
     
     const result = await ShopLedger.clearTransactionHistory(shopId, { 

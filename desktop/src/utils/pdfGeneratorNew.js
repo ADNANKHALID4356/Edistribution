@@ -9,24 +9,24 @@ import { jsPDF } from 'jspdf';
 /**
  * Generate Delivery Challan PDF
  */
-export const generateChallanPDF = (deliveryData, companyData) => {
+export const generateChallanPDF = (deliveryData, companyData, options = {}) => {
   console.log('🆕 NEW PDF GENERATOR - Starting...');
   console.log('🆕 Company Data:', companyData);
   console.log('🆕 Delivery Data:', deliveryData);
 
-  // Create PDF - 80mm width thermal receipt
+  const paper = options.paper || 'thermal80'; // 'thermal80' | 'a4'
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [80, 297]
+    format: paper === 'a4' ? 'a4' : [80, 297],
   });
 
   // CRITICAL: Set page to start rendering from absolute top
   pdf.setPage(1);
   
-  const width = 80;
-  const margin = 5;
-  let y = 5; // Start from very top - changed from 10 to 5
+  const width = paper === 'a4' ? pdf.internal.pageSize.getWidth() : 80;
+  const margin = paper === 'a4' ? 12 : 5;
+  let y = margin; // Start from top margin for predictable physical printing
 
   // Helper: Center text
   const addCenteredText = (text, yPos, fontSize = 10, bold = false) => {
