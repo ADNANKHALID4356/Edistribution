@@ -554,6 +554,79 @@ function migrateShopsTable() {
   }
 }
 
+// Migrate stock_movements table to support stock logging from Product/Warehouse/Returns flows
+function migrateStockMovementsTable() {
+  console.log('🔄 Checking stock_movements table schema...');
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS stock_movements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        warehouse_id INTEGER,
+        movement_type TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        stock_before REAL,
+        stock_after REAL,
+        reserved_before REAL,
+        reserved_after REAL,
+        available_before REAL,
+        available_after REAL,
+        reference_type TEXT,
+        reference_id INTEGER,
+        reference_number TEXT,
+        notes TEXT,
+        created_by INTEGER,
+        movement_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products(id),
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `);
+
+    // Compatibility columns used by some legacy service paths
+    const movementColumns = [
+      ['warehouse_id', 'INTEGER'],
+      ['stock_before', 'REAL'],
+      ['stock_after', 'REAL'],
+      ['reserved_before', 'REAL'],
+      ['reserved_after', 'REAL'],
+      ['available_before', 'REAL'],
+      ['available_after', 'REAL'],
+      ['reference_type', 'TEXT'],
+      ['reference_id', 'INTEGER'],
+      ['reference_number', 'TEXT'],
+      ['notes', 'TEXT'],
+      ['created_by', 'INTEGER'],
+      ['movement_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP'],
+      ['created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP'],
+      ['quantity_before', 'REAL'],
+      ['quantity_after', 'REAL'],
+      ['unit_cost', 'REAL']
+    ];
+
+    let columnsAdded = 0;
+    for (const [colName, colDef] of movementColumns) {
+      if (safeAddColumn('stock_movements', colName, colDef)) {
+        columnsAdded++;
+      }
+    }
+
+    // Helpful indexes for history and filters
+    db.exec('CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements(product_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_stock_movements_movement_type ON stock_movements(movement_type)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON stock_movements(created_at)');
+
+    if (columnsAdded > 0) {
+      console.log(`✅ stock_movements migration complete - added ${columnsAdded} columns`);
+    } else {
+      console.log('✅ stock_movements schema is up to date');
+    }
+  } catch (e) {
+    console.log(`⚠️ stock_movements migration warning: ${e.message}`);
+  }
+}
+
 // Migrate company_settings table — ensures column names match MySQL production schema
 // (009_company_settings.sql). Adds any missing MySQL-named columns and the new
 // extended fields. Safe to run on both fresh and existing databases.
@@ -1219,6 +1292,7 @@ function initializeDatabase() {
   migrateWarehousesTable();
   migrateOrdersTable(); // NEW: Add delivery tracking columns
   migrateShopsTable();  // NEW: Ensure shops table has salesman_id and related fields
+  migrateStockMovementsTable(); // NEW: Ensure stock movement logging table exists
 
   // MIGRATION: New feature tables and columns
   migrateNewFeatures();

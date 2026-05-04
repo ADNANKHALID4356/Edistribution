@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu, shell } = require('electron');
 const path = require('path');
 const url = require('url');
 const { spawn } = require('child_process');
@@ -6,6 +6,16 @@ const fs = require('fs');
 
 let mainWindow;
 let backendProcess;
+const APP_WINDOW_TITLE = 'Enterprise_Distribution_Management_System';
+
+function resolveAppIcon() {
+  const candidates = [
+    path.join(__dirname, 'public', 'app-icon.png'),
+    path.join(__dirname, 'public', 'icon.ico'),
+    path.join(__dirname, 'icon.ico')
+  ];
+  return candidates.find((iconPath) => fs.existsSync(iconPath));
+}
 
 // Start backend server
 function startBackend() {
@@ -80,8 +90,14 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, 'icon.ico'),
-    title: 'Distribution Management System'
+    icon: resolveAppIcon(),
+    title: APP_WINDOW_TITLE,
+    autoHideMenuBar: true
+  });
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault();
+    mainWindow.setTitle(APP_WINDOW_TITLE);
   });
 
   // Load the React app using loadFile (more reliable than loadURL)
@@ -117,6 +133,22 @@ function createWindow() {
     console.log('✅ Page finished loading');
   });
 
+  // Open external URLs in default browser instead of inside Electron.
+  mainWindow.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+    if (/^https?:\/\//i.test(targetUrl)) {
+      shell.openExternal(targetUrl);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
+    if (/^https?:\/\//i.test(targetUrl)) {
+      event.preventDefault();
+      shell.openExternal(targetUrl);
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -124,6 +156,8 @@ function createWindow() {
 
 // Initialize app
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null);
+  app.setName(APP_WINDOW_TITLE);
   // Start backend first
   await startBackend();
   

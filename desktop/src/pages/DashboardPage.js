@@ -242,8 +242,15 @@ useEffect(() => {
                 <TruckIcon className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">Distribution Management System</h1>
-                <p className="text-xs text-primary-600 font-medium tracking-wide">Ummahtechinnovations.com</p>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">Enterprise_Distribution_Management_System</h1>
+                <a
+                  href="https://ummahtechinnovations.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary-600 font-medium tracking-wide hover:text-primary-700 hover:underline"
+                >
+                  UmmahTechInnovations
+                </a>
               </div>
             </div>
             <div className="flex items-center space-x-3">

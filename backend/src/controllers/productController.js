@@ -161,6 +161,38 @@ exports.getProducts = async (req, res) => {
   }
 };
 
+// @desc    Get dynamic filter options for cascading product filters
+// @route   GET /api/desktop/products/filter-options
+// @access  Private
+exports.getFilterOptions = async (req, res) => {
+  try {
+    const { search, category, brand, company_name, stock_level, is_active } = req.query;
+
+    const options = {
+      search,
+      category,
+      brand,
+      company_name,
+      stock_level,
+      is_active: is_active !== undefined && is_active !== '' ? is_active === 'true' : null
+    };
+
+    const filterOptions = await Product.getFilterOptions(options);
+
+    res.json({
+      success: true,
+      data: filterOptions
+    });
+  } catch (error) {
+    console.error('Get filter options error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching filter options',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get single product by ID
 // @route   GET /api/desktop/products/:id
 // @access  Private
@@ -612,10 +644,32 @@ exports.bulkImportProducts = async (req, res) => {
         const existingProduct = await Product.findByName(productData.product_name);
         
         if (existingProduct) {
-          // If the product was inactive, reactivate it
-          if (existingProduct.is_active === 0 || existingProduct.is_active === false) {
-            await Product.update(existingProduct.id, { ...existingProduct, is_active: 1 });
-          }
+          const hasExplicitActiveFlag = productData.is_active !== undefined && productData.is_active !== null;
+          const mergedUpdateData = {
+            product_name: productData.product_name || existingProduct.product_name,
+            category: productData.category || existingProduct.category || null,
+            brand: productData.brand || existingProduct.brand || null,
+            company_name: productData.company_name || existingProduct.company_name || null,
+            pack_size: productData.pack_size || existingProduct.pack_size || null,
+            unit_price: productData.unit_price || existingProduct.unit_price || 0,
+            carton_price: productData.carton_price || existingProduct.carton_price || 0,
+            pieces_per_carton: productData.pieces_per_carton || existingProduct.pieces_per_carton || 1,
+            purchase_price: productData.purchase_price || existingProduct.purchase_price || 0,
+            stock_quantity: existingProduct.stock_quantity,
+            reorder_level:
+              productData.reorder_level !== undefined && productData.reorder_level !== null
+                ? productData.reorder_level
+                : (existingProduct.reorder_level || 0),
+            supplier_id: productData.supplier_id || existingProduct.supplier_id || null,
+            barcode: productData.barcode || existingProduct.barcode || null,
+            description: productData.description || existingProduct.description || null,
+            is_active: hasExplicitActiveFlag
+              ? productData.is_active
+              : (existingProduct.is_active === 0 || existingProduct.is_active === false ? true : existingProduct.is_active)
+          };
+
+          // Keep metadata (category/brand/company etc.) in sync when the row already exists.
+          await Product.update(existingProduct.id, mergedUpdateData);
 
           // Add stock if we already have it
           const stockToAdd = parseFloat(productData.stock_quantity) || 0;

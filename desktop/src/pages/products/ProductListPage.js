@@ -20,6 +20,8 @@ const ProductListPage = () => {
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [stockLevelOptions, setStockLevelOptions] = useState([]);
+  const [statusOptions, setStatusOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -77,15 +79,45 @@ const ProductListPage = () => {
   // Fetch filter options
   const fetchFilterOptions = async () => {
     try {
-      const [categoriesRes, brandsRes, companiesRes] = await Promise.all([
-        productService.getCategories(),
-        productService.getBrands(),
-        productService.getCompanies(),
-      ]);
-      
-      if (categoriesRes.success) setCategories(categoriesRes.data);
-      if (brandsRes.success) setBrands(brandsRes.data);
-      if (companiesRes.success) setCompanies(companiesRes.data);
+      const params = {};
+      if (search) params.search = search;
+      if (selectedCategory) params.category = selectedCategory;
+      if (selectedBrand) params.brand = selectedBrand;
+      if (selectedCompany) params.company_name = selectedCompany;
+      if (selectedStockLevel) params.stock_level = selectedStockLevel;
+      if (selectedStatus !== '') params.is_active = selectedStatus;
+
+      const response = await productService.getFilterOptions(params);
+      if (!response.success) return;
+
+      const nextCategories = response.data?.categories || [];
+      const nextBrands = response.data?.brands || [];
+      const nextCompanies = response.data?.companies || [];
+      const nextStockLevels = response.data?.stock_levels || [];
+      const nextStatuses = response.data?.statuses || [];
+
+      setCategories(nextCategories);
+      setBrands(nextBrands);
+      setCompanies(nextCompanies);
+      setStockLevelOptions(nextStockLevels);
+      setStatusOptions(nextStatuses);
+
+      // Auto-heal invalid selected values when parent filters narrow available options.
+      if (selectedCategory && !nextCategories.includes(selectedCategory)) {
+        setSelectedCategory('');
+      }
+      if (selectedBrand && !nextBrands.includes(selectedBrand)) {
+        setSelectedBrand('');
+      }
+      if (selectedCompany && !nextCompanies.includes(selectedCompany)) {
+        setSelectedCompany('');
+      }
+      if (selectedStockLevel && !nextStockLevels.some((item) => item.value === selectedStockLevel)) {
+        setSelectedStockLevel('');
+      }
+      if (selectedStatus !== '' && !nextStatuses.some((item) => item.value === selectedStatus)) {
+        setSelectedStatus('');
+      }
     } catch (err) {
       console.error('Failed to fetch filter options:', err);
     }
@@ -98,7 +130,8 @@ const ProductListPage = () => {
 
   useEffect(() => {
     fetchFilterOptions();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, selectedCategory, selectedBrand, selectedCompany, selectedStockLevel, selectedStatus]);
 
   // Handle delete product
   const handleDelete = async (id, productName) => {
@@ -300,7 +333,7 @@ const ProductListPage = () => {
                 <FunnelIcon className="w-4 h-4 mr-2" />
                 {showFilters ? 'Hide Filters' : 'Show Filters'}
               </button>
-              {(selectedCategory || selectedBrand || selectedCompany || selectedStockLevel || selectedStatus) && (
+              {(selectedCategory || selectedBrand || selectedCompany || selectedStockLevel || selectedStatus !== 'true') && (
                 <button
                   onClick={clearFilters}
                   className="text-sm text-primary-600 hover:text-primary-800"
@@ -381,9 +414,12 @@ const ProductListPage = () => {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                   >
                     <option value="">All Stock Levels</option>
-                    <option value="in_stock">In Stock</option>
-                    <option value="low_stock">Low Stock</option>
-                    <option value="out_of_stock">Out of Stock</option>
+                    {stockLevelOptions.map((stockOption) => (
+                      <option key={stockOption.value} value={stockOption.value}>
+                        {stockOption.label}
+                        {typeof stockOption.count === 'number' ? ` (${stockOption.count})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -398,8 +434,12 @@ const ProductListPage = () => {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                   >
                     <option value="">All Status</option>
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
+                    {statusOptions.map((statusOption) => (
+                      <option key={statusOption.value} value={statusOption.value}>
+                        {statusOption.label}
+                        {typeof statusOption.count === 'number' ? ` (${statusOption.count})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

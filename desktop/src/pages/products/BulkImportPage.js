@@ -72,7 +72,9 @@ const BulkImportPage = () => {
             if (h.includes('name') || h.includes('product')) autoMap.product_name = header;
             if (h.includes('stock') || h.includes('qty') || h.includes('quantity')) autoMap.stock_quantity = header;
             if (h.includes('price')) autoMap.unit_price = header;
+            if (h.includes('category') || h.includes('type')) autoMap.category = header;
             if (h.includes('company') || h.includes('brand')) autoMap.company_name = header;
+            if (h.includes('barcode') || h.includes('bar code') || h.includes('bar_code') || h.includes('ean') || h.includes('upc')) autoMap.barcode = header;
           });
           setColumnMapping(autoMap);
 

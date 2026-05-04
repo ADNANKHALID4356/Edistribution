@@ -160,6 +160,20 @@ const productService = {
   },
 
   /**
+   * Get dynamic cascading filter options for products page
+   * @param {Object} params - Current selected filters
+   * @returns {Promise} Response with categories, brands, companies, stock_levels, statuses
+   */
+  getFilterOptions: async (params = {}) => {
+    try {
+      const response = await api.get('/desktop/products/filter-options', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  /**
    * Bulk import products from array
     * Bulk import products array (CSV/Excel converted)
    * The backend will automatically UPSERT by increasing stock if product_name exists.

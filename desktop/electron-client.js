@@ -7,6 +7,17 @@ const http = require('http');
 
 let mainWindow;
 let backendProcess;
+const APP_WINDOW_TITLE = 'Enterprise_Distribution_Management_System';
+
+function resolveAppIcon() {
+  const candidates = [
+    path.join(__dirname, 'public', 'app-icon.png'),
+    path.join(__dirname, 'public', 'icon.ico'),
+    path.join(__dirname, 'build', 'favicon.ico'),
+    path.join(__dirname, 'icon.ico')
+  ];
+  return candidates.find((iconPath) => fs.existsSync(iconPath));
+}
 
 // Check if backend is responding
 function checkBackendHealth() {
@@ -98,9 +109,15 @@ function createWindow() {
       sandbox: true,
       enableRemoteModule: false,
     },
-    icon: path.join(__dirname, 'build', 'favicon.ico'),
-    title: 'Distribution Management System',
+    icon: resolveAppIcon(),
+    title: APP_WINDOW_TITLE,
+    autoHideMenuBar: true,
     show: false, // Don't show until ready
+  });
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault();
+    mainWindow.setTitle(APP_WINDOW_TITLE);
   });
 
   // In local development, prefer live dev-server build.
@@ -186,54 +203,14 @@ function createWindow() {
     clearTimeout(showWindowTimeout);
   });
 
-  // Create application menu
-  const menuTemplate = [
-    {
-      label: 'File',
-      submenu: [
-        { role: 'quit', label: 'Exit' }
-      ]
-    },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' }
-      ]
-    },
-    {
-      label: 'Help',
-      submenu: [
-        {
-          label: 'About',
-          click: () => {
-            const { dialog } = require('electron');
-            dialog.showMessageBox(mainWindow, {
-              type: 'info',
-              title: 'About',
-              message: 'Distribution Management System',
-              detail: 'Version 1.0.0\n\nDeveloped by Ummahtechinnovations\n\nA professional distribution management system for warehouse and sales operations.'
-            });
-          }
-        }
-      ]
-    }
-  ];
-
-  const menu = Menu.buildFromTemplate(menuTemplate);
-  Menu.setApplicationMenu(menu);
 }
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(async () => {
   console.log('\n🕐 Electron app is ready!');
   console.log('📝 Creating main window...');
+  Menu.setApplicationMenu(null);
+  app.setName(APP_WINDOW_TITLE);
   
   // Create the window
   createWindow();

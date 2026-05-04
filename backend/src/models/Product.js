@@ -801,6 +801,152 @@ const Product = {
         hasPrevPage: page > 1
       }
     };
+  },
+
+  /**
+   * Get cascading filter options based on currently selected filters.
+   * Each options list is calculated by excluding its own filter from WHERE clause
+   * so users can still switch values while keeping other filters applied.
+   */
+  async getFilterOptions(options = {}) {
+    const {
+      search = '',
+      category = '',
+      brand = '',
+      company_name = '',
+      stock_level = '',
+      is_active = null
+    } = options;
+
+    const buildWhere = (excludeField = null) => {
+      let where = ' WHERE 1=1';
+      const params = [];
+
+      if (search) {
+        where += ' AND (p.product_name LIKE ? OR p.product_code LIKE ? OR p.barcode LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      }
+
+      if (category && excludeField !== 'category') {
+        where += ' AND p.category = ?';
+        params.push(category);
+      }
+
+      if (brand && excludeField !== 'brand') {
+        where += ' AND p.brand = ?';
+        params.push(brand);
+      }
+
+      if (company_name && excludeField !== 'company_name') {
+        where += ' AND p.company_name = ?';
+        params.push(company_name);
+      }
+
+      if (stock_level && excludeField !== 'stock_level') {
+        if (stock_level === 'out_of_stock') {
+          where += ' AND p.stock_quantity = 0';
+        } else if (stock_level === 'low_stock') {
+          where += ' AND p.stock_quantity > 0 AND p.stock_quantity <= p.reorder_level';
+        } else if (stock_level === 'in_stock') {
+          where += ' AND p.stock_quantity > p.reorder_level';
+        }
+      }
+
+      if (is_active !== null && excludeField !== 'is_active') {
+        where += ' AND p.is_active = ?';
+        params.push(is_active);
+      }
+
+      return { where, params };
+    };
+
+    const categoryFilter = buildWhere('category');
+    const brandFilter = buildWhere('brand');
+    const companyFilter = buildWhere('company_name');
+    const stockFilter = buildWhere('stock_level');
+    const statusFilter = buildWhere('is_active');
+
+    const [categoryRowsResult, brandRowsResult, companyRowsResult, stockRowsResult, statusRowsResult] = await Promise.all([
+      db.query(
+        `SELECT DISTINCT p.category
+         FROM products p
+         ${categoryFilter.where}
+         AND p.category IS NOT NULL
+         AND p.category != ''
+         ORDER BY p.category ASC`,
+        categoryFilter.params
+      ),
+      db.query(
+        `SELECT DISTINCT p.brand
+         FROM products p
+         ${brandFilter.where}
+         AND p.brand IS NOT NULL
+         AND p.brand != ''
+         ORDER BY p.brand ASC`,
+        brandFilter.params
+      ),
+      db.query(
+        `SELECT DISTINCT p.company_name
+         FROM products p
+         ${companyFilter.where}
+         AND p.company_name IS NOT NULL
+         AND p.company_name != ''
+         ORDER BY p.company_name ASC`,
+        companyFilter.params
+      ),
+      db.query(
+        `SELECT
+          SUM(CASE WHEN p.stock_quantity > p.reorder_level THEN 1 ELSE 0 END) AS in_stock_count,
+          SUM(CASE WHEN p.stock_quantity > 0 AND p.stock_quantity <= p.reorder_level THEN 1 ELSE 0 END) AS low_stock_count,
+          SUM(CASE WHEN p.stock_quantity = 0 THEN 1 ELSE 0 END) AS out_of_stock_count
+         FROM products p
+         ${stockFilter.where}`,
+        stockFilter.params
+      ),
+      db.query(
+        `SELECT p.is_active, COUNT(*) AS total
+         FROM products p
+         ${statusFilter.where}
+         GROUP BY p.is_active
+         ORDER BY p.is_active DESC`,
+        statusFilter.params
+      )
+    ]);
+
+    const [categoryRows] = categoryRowsResult;
+    const [brandRows] = brandRowsResult;
+    const [companyRows] = companyRowsResult;
+    const [stockRows] = stockRowsResult;
+    const [statusRows] = statusRowsResult;
+
+    const stockCounts = stockRows[0] || {};
+    const stockLevels = [];
+    if ((stockCounts.in_stock_count || 0) > 0) {
+      stockLevels.push({ value: 'in_stock', label: 'In Stock', count: Number(stockCounts.in_stock_count) });
+    }
+    if ((stockCounts.low_stock_count || 0) > 0) {
+      stockLevels.push({ value: 'low_stock', label: 'Low Stock', count: Number(stockCounts.low_stock_count) });
+    }
+    if ((stockCounts.out_of_stock_count || 0) > 0) {
+      stockLevels.push({ value: 'out_of_stock', label: 'Out of Stock', count: Number(stockCounts.out_of_stock_count) });
+    }
+
+    const statuses = statusRows.map((row) => {
+      const normalized = Number(row.is_active) === 1;
+      return {
+        value: normalized ? 'true' : 'false',
+        label: normalized ? 'Active' : 'Inactive',
+        count: Number(row.total) || 0
+      };
+    });
+
+    return {
+      categories: categoryRows.map((r) => r.category),
+      brands: brandRows.map((r) => r.brand),
+      companies: companyRows.map((r) => r.company_name),
+      stock_levels: stockLevels,
+      statuses
+    };
   }
 };
 

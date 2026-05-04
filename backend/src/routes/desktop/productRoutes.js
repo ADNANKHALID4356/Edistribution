@@ -17,6 +17,7 @@ const {
   getCategories,
   getBrands,
   getCompanies,
+  getFilterOptions,
   bulkImportProducts,
   uploadAndParseFile,
   getProductWarehouseStock,
@@ -53,6 +54,11 @@ router.get('/companies', authorize(...PRODUCT_STOCK_ROLES), getCompanies);
 // @desc    Get low stock products
 // @access  Private (Admin, Manager)
 router.get('/low-stock', authorize(...PRODUCT_STOCK_ROLES), getLowStockProducts);
+
+// @route   GET /api/desktop/products/filter-options
+// @desc    Get dynamic cascading filter options
+// @access  Private
+router.get('/filter-options', authorize(...PRODUCT_STOCK_ROLES), getFilterOptions);
 
 // @route   POST /api/desktop/products/bulk
 // @desc    Bulk import products
