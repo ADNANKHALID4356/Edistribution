@@ -1,26 +1,40 @@
-import paramiko
+#!/usr/bin/env python3
+"""Quick VPS PM2 status check (env-based credentials)."""
+from __future__ import annotations
+
+import os
 import sys
 
-HOST = '147.93.108.205'
-USER = 'root'
-PASSWORD = 'LaptopAdmin098&'
+import paramiko
 
-try:
-    print("Connecting to VPS...")
+HOST = os.environ.get("VPS_HOST", "147.93.108.205")
+USER = os.environ.get("VPS_SSH_USER", "adminops")
+PASSWORD = os.environ.get("VPS_SSH_PASSWORD")
+
+
+def main() -> int:
+    if not PASSWORD:
+        print("Set VPS_SSH_PASSWORD in the environment.", file=sys.stderr)
+        return 1
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(HOST, port=22, username=USER, password=PASSWORD, timeout=10)
-    print("Connected.")
+    try:
+        print("Connecting to VPS...")
+        ssh.connect(HOST, port=22, username=USER, password=PASSWORD, timeout=10)
+        print("Connected.")
 
-    print("Running pm2 show distribution-api")
-    stdin, stdout, stderr = ssh.exec_command("pm2 desc distribution-api | grep 'script path'")
-    print(stdout.read().decode('utf-8'))
+        for name in ("distribution-api", "backend"):
+            print(f"\nRunning pm2 show {name}")
+            _, stdout, _ = ssh.exec_command(f"pm2 desc {name} | grep 'script path'")
+            print(stdout.read().decode("utf-8"))
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    finally:
+        ssh.close()
 
-    print("\nRunning pm2 show backend")
-    stdin, stdout, stderr = ssh.exec_command("pm2 desc backend | grep 'script path'")
-    print(stdout.read().decode('utf-8'))
 
-except Exception as e:
-    print(f"Error: {e}")
-finally:
-    ssh.close()
+if __name__ == "__main__":
+    raise SystemExit(main())

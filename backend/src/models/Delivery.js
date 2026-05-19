@@ -997,41 +997,73 @@ class Delivery {
         console.log(`      - Unit Price: ${item.unit_price}`);
         console.log(`      - Total: ${item.total_price}`);
         
-          // Fetch current purchase cost
+          // Fetch current purchase cost (used on MySQL where this column exists)
           const [costRes] = await connection.query('SELECT purchase_price FROM products WHERE id = ?', [item.product_id]);
           const unitPurchaseCost = costRes.length > 0 ? parseFloat(costRes[0].purchase_price || 0) : 0;
 
-          await connection.query(`
-            INSERT INTO delivery_items (
-              delivery_id, 
-              product_id, 
-              product_name, 
-              product_code,
-              quantity_ordered, 
-              quantity_delivered, 
-              quantity_returned,
-              unit_price, 
-              total_price,
-              discount_percentage,
-              discount_amount,
-              net_amount,
-              unit_purchase_cost
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            deliveryId,
-            item.product_id,
-            item.product_name,
-            item.product_code || null,
-            item.quantity,
-            item.quantity, // Initially, quantity_delivered = quantity_ordered
-            0, // quantity_returned = 0
-            item.unit_price,
-            item.total_price,
-            item.discount_percentage || 0,
-            item.discount_amount || 0,
-            item.net_price || item.total_price,
-            unitPurchaseCost
-          ]);
+          if (useSQLite) {
+            await connection.query(`
+              INSERT INTO delivery_items (
+                delivery_id,
+                product_id,
+                product_name,
+                product_code,
+                quantity_ordered,
+                quantity_delivered,
+                quantity_returned,
+                unit_price,
+                total_price,
+                discount_percentage,
+                discount_amount,
+                net_amount
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              deliveryId,
+              item.product_id,
+              item.product_name,
+              item.product_code || null,
+              item.quantity,
+              item.quantity, // Initially, quantity_delivered = quantity_ordered
+              0, // quantity_returned = 0
+              item.unit_price,
+              item.total_price,
+              item.discount_percentage || 0,
+              item.discount_amount || 0,
+              item.net_price || item.total_price
+            ]);
+          } else {
+            await connection.query(`
+              INSERT INTO delivery_items (
+                delivery_id, 
+                product_id, 
+                product_name, 
+                product_code,
+                quantity_ordered, 
+                quantity_delivered, 
+                quantity_returned,
+                unit_price, 
+                total_price,
+                discount_percentage,
+                discount_amount,
+                net_amount,
+                unit_purchase_cost
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              deliveryId,
+              item.product_id,
+              item.product_name,
+              item.product_code || null,
+              item.quantity,
+              item.quantity, // Initially, quantity_delivered = quantity_ordered
+              0, // quantity_returned = 0
+              item.unit_price,
+              item.total_price,
+              item.discount_percentage || 0,
+              item.discount_amount || 0,
+              item.net_price || item.total_price,
+              unitPurchaseCost
+            ]);
+          }
       }
 
       console.log('✅ All delivery items inserted and stock reserved');

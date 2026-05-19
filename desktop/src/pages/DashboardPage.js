@@ -32,6 +32,12 @@ const DashboardPage = () => {
     net_cogs: 0,
     total_return_revenue: 0,
     total_gross_revenue: 0,
+    total_collections_received_raw: 0,
+    total_shop_ledger_collections_received: 0,
+    total_manual_daily_collections: 0,
+    total_manual_daily_collections_raw: 0,
+    total_manual_daily_collections_deduped: 0,
+    duplicate_manual_daily_collections: 0,
     total_orders: 0,
     total_products: 0,
     active_products: 0,
@@ -51,6 +57,7 @@ const DashboardPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [showCashDetails, setShowCashDetails] = useState(false);
 
   const [dateRange, setDateRange] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -81,6 +88,12 @@ const DashboardPage = () => {
           net_cogs: Number(response.data.net_cogs) || 0,
           total_return_revenue: Number(response.data.total_return_revenue) || 0,
           total_gross_revenue: Number(response.data.total_gross_revenue) || 0,
+          total_collections_received_raw: Number(response.data.total_collections_received_raw) || 0,
+          total_shop_ledger_collections_received: Number(response.data.total_shop_ledger_collections_received) || 0,
+          total_manual_daily_collections: Number(response.data.total_manual_daily_collections) || 0,
+          total_manual_daily_collections_raw: Number(response.data.total_manual_daily_collections_raw) || 0,
+          total_manual_daily_collections_deduped: Number(response.data.total_manual_daily_collections_deduped) || 0,
+          duplicate_manual_daily_collections: Number(response.data.duplicate_manual_daily_collections) || 0,
           total_orders: Number(response.data.total_orders) || 0,
           total_products: Number(response.data.total_products) || 0,
           active_products: Number(response.data.active_products) || 0,
@@ -134,6 +147,49 @@ useEffect(() => {
     return 'Rs ' + parseFloat(num || 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
+  const getReportingPeriodLabel = () => {
+    if (dateRange === 'today') return new Date().toLocaleDateString();
+    if (dateRange === 'custom') return `${startDate || 'Start'} to ${endDate || 'End'}`;
+    return 'All Time';
+  };
+
+  const getPnLIntegrityChecks = () => {
+    const epsilon = 0.01;
+    const expectedCollectionsIn = (Number(stats.total_shop_ledger_collections_received) || 0) + (Number(stats.total_manual_daily_collections_deduped) || 0);
+    const expectedNetRevenue = expectedCollectionsIn - (Number(stats.total_return_revenue) || 0);
+    const expectedGrossProfit = expectedNetRevenue - (Number(stats.net_cogs) || 0);
+    const rawCollectionsIn = Number(stats.total_collections_received_raw) || 0;
+
+    return [
+      {
+        check: 'Collections In = Shop Ledger + Manual Deduped',
+        expected: expectedCollectionsIn,
+        actual: Number(stats.total_gross_revenue) || 0,
+      },
+      {
+        check: 'Net Cash Revenue = Collections In - Payouts/Refunds',
+        expected: expectedNetRevenue,
+        actual: Number(stats.net_revenue) || 0,
+      },
+      {
+        check: 'Gross Profit = Net Cash Revenue - COGS',
+        expected: expectedGrossProfit,
+        actual: Number(stats.gross_profit) || 0,
+      },
+      {
+        check: 'Collections In (Raw) >= Collections In (Deduped)',
+        expected: rawCollectionsIn,
+        actual: Number(stats.total_gross_revenue) || 0,
+        comparator: 'gte',
+      },
+    ].map((item) => {
+      const passed = item.comparator === 'gte'
+        ? item.expected + epsilon >= item.actual
+        : Math.abs(item.expected - item.actual) <= epsilon;
+      return { ...item, passed };
+    });
+  };
+
   const currentRole = user?.role_name || user?.role || '';
   const hasRole = (...allowed) => allowed.includes(currentRole);
   const canViewFinancialDashboard = hasRole('Admin', 'Senior Manager', 'Accountant');
@@ -175,9 +231,14 @@ useEffect(() => {
       head: [['Metric', 'Value']],
       body: [
         ['Gross Profit', formatCurrency(stats.gross_profit)],
-        ['Net Revenue', formatCurrency(stats.net_revenue)],
-        ['Total Gross Revenue', formatCurrency(stats.total_gross_revenue)],
-        ['Total Return Revenue', formatCurrency(stats.total_return_revenue)],
+        ['Net Cash Revenue', formatCurrency(stats.net_revenue)],
+        ['Total Collections In (Deduped)', formatCurrency(stats.total_gross_revenue)],
+        ['Total Collections In (Raw)', formatCurrency(stats.total_collections_received_raw)],
+        ['Shop Ledger Collections', formatCurrency(stats.total_shop_ledger_collections_received)],
+        ['Manual Collections (Raw)', formatCurrency(stats.total_manual_daily_collections_raw)],
+        ['Manual Collections (Deduped)', formatCurrency(stats.total_manual_daily_collections_deduped)],
+        ['Dedup Excluded', formatCurrency(stats.duplicate_manual_daily_collections)],
+        ['Total Payouts/Refunds', formatCurrency(stats.total_return_revenue)],
         ['Total COGS', formatCurrency(stats.net_cogs)]
       ],
       theme: 'grid',
@@ -221,6 +282,100 @@ useEffect(() => {
     doc.save(`Dashboard_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  const exportPnLPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const reportDate = new Date().toLocaleString();
+    const reportingPeriod = getReportingPeriodLabel();
+    const integrityChecks = getPnLIntegrityChecks();
+    const failedChecks = integrityChecks.filter((row) => !row.passed).length;
+
+    doc.setFontSize(20);
+    doc.setTextColor(30, 41, 59);
+    doc.text('Profit & Loss Report (Cash Basis)', pageWidth / 2, 18, { align: 'center' });
+    doc.setFontSize(11);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Enterprise Distribution Management System', pageWidth / 2, 25, { align: 'center' });
+    doc.text(`Generated: ${reportDate}`, 14, 34);
+    doc.text(`Reporting Period: ${reportingPeriod}`, 14, 40);
+    doc.text(`Prepared By: ${user?.full_name || 'Admin'}`, 14, 46);
+    doc.text('Recognition Basis: Cash (Payment Collections)', 14, 52);
+    doc.text('Dedup Policy: Manual collections excluded only when reference matches a ledger payment.', 14, 58);
+
+    autoTable(doc, {
+      startY: 66,
+      head: [['P&L Summary Metric', 'Amount']],
+      body: [
+        ['Collections In (Deduped)', formatCurrency(stats.total_gross_revenue)],
+        ['Payouts / Refunds', formatCurrency(stats.total_return_revenue)],
+        ['Net Cash Revenue', formatCurrency(stats.net_revenue)],
+        ['COGS', formatCurrency(stats.net_cogs)],
+        ['Gross Profit', formatCurrency(stats.gross_profit)],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 11, cellPadding: 5 },
+    });
+
+    let finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 110;
+    autoTable(doc, {
+      startY: finalY + 10,
+      head: [['Collection Source Breakdown', 'Amount']],
+      body: [
+        ['Shop Ledger Collections', formatCurrency(stats.total_shop_ledger_collections_received)],
+        ['Manual Collections (Raw)', formatCurrency(stats.total_manual_daily_collections_raw)],
+        ['Manual Collections (Deduped)', formatCurrency(stats.total_manual_daily_collections_deduped)],
+        ['Duplicates Excluded', formatCurrency(stats.duplicate_manual_daily_collections)],
+        ['Collections In (Raw)', formatCurrency(stats.total_collections_received_raw)],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
+      styles: { fontSize: 10, cellPadding: 4 },
+    });
+
+    finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : finalY + 70;
+    autoTable(doc, {
+      startY: finalY + 10,
+      head: [['Data Integrity Check', 'Expected', 'Actual', 'Status']],
+      body: integrityChecks.map((row) => [
+        row.check,
+        formatCurrency(row.expected),
+        formatCurrency(row.actual),
+        row.passed ? 'PASS' : 'FAIL',
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [15, 118, 110] },
+      styles: { fontSize: 9, cellPadding: 4 },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 3) {
+          data.cell.styles.textColor = data.cell.raw === 'PASS' ? [22, 101, 52] : [153, 27, 27];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
+    });
+
+    finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : finalY + 60;
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    doc.text(
+      failedChecks === 0
+        ? 'All integrity checks passed. Financial figures are internally consistent.'
+        : `Warning: ${failedChecks} integrity check(s) failed. Please investigate before publishing.`,
+      14,
+      finalY + 10
+    );
+
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, doc.internal.pageSize.height - 10, { align: 'right' });
+    }
+
+    doc.save(`PnL_Cash_Basis_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   // Use ACTIVE counts to match what users see on management pages (which filter by is_active=true by default)
   const statsCards = [
     { name: 'Total Products', value: stats.active_products || stats.total_products, icon: TruckIcon, gradient: 'from-emerald-400 to-emerald-600', bgLight: 'bg-emerald-50', borderColor: 'border-emerald-200', link: '/products', roles: ['Admin', 'Senior Manager', 'Stock Manager'] },
@@ -231,63 +386,92 @@ useEffect(() => {
     { name: 'Total Warehouses', value: stats.active_warehouses || stats.total_warehouses, icon: CubeIcon, gradient: 'from-teal-400 to-teal-600', bgLight: 'bg-teal-50', borderColor: 'border-teal-200', link: '/warehouses', roles: ['Admin', 'Senior Manager', 'Manager'] },
   ].filter((card) => hasRole(...card.roles));
 
+  const headerBtn =
+    'inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center shadow-lg shadow-primary-200">
-                <TruckIcon className="h-7 w-7 text-white" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-md shadow-primary-200">
+                <TruckIcon className="h-6 w-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">Enterprise_Distribution_Management_System</h1>
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-bold text-gray-800 sm:text-lg lg:max-w-md xl:max-w-xl">
+                  Enterprise Distribution Management
+                </h1>
                 <a
                   href="https://ummahtechinnovations.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-primary-600 font-medium tracking-wide hover:text-primary-700 hover:underline"
+                  className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline"
                 >
                   UmmahTechInnovations
                 </a>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
               {canViewFinancialDashboard && (
-                <button
-                  onClick={exportToPDF}
-                  className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-red-50 to-red-100 border border-red-200 text-sm font-medium rounded-xl text-red-700 hover:from-red-100 hover:to-red-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
-                  title="Export as PDF"
+                <div
+                  className="inline-flex h-10 items-stretch overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-sm"
+                  role="group"
+                  aria-label="Export reports"
                 >
-                  <DocumentArrowDownIcon className="h-5 w-5 mr-2 text-red-600" />
-                  Export PDF
-                </button>
+                  <button
+                    type="button"
+                    onClick={exportPnLPDF}
+                    className="inline-flex items-center gap-1.5 border-r border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
+                    title="Export P&L report as PDF"
+                  >
+                    <DocumentArrowDownIcon className="h-4 w-4 text-primary-600" />
+                    <span className="hidden md:inline">P&amp;L PDF</span>
+                    <span className="md:hidden">P&amp;L</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportToPDF}
+                    className="inline-flex items-center gap-1.5 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:z-10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
+                    title="Export full dashboard as PDF"
+                  >
+                    <DocumentArrowDownIcon className="h-4 w-4 text-gray-500" />
+                    <span className="hidden md:inline">Dashboard PDF</span>
+                    <span className="md:hidden">PDF</span>
+                  </button>
+                </div>
               )}
               <button
+                type="button"
                 onClick={fetchDashboardStats}
-                className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 text-sm font-medium rounded-xl text-gray-700 hover:from-gray-100 hover:to-gray-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200"
+                className={headerBtn}
                 title={`Last refresh: ${lastRefresh.toLocaleTimeString()}`}
               >
-                <ArrowPathIcon className={`h-5 w-5 mr-2 text-primary-600 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
+                <ArrowPathIcon className={`h-4 w-4 text-primary-600 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
               </button>
-              <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
-                  {user?.full_name?.charAt(0) || 'U'}
+              <div className="hidden h-8 w-px bg-gray-200 sm:block" aria-hidden="true" />
+              <div className="flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white pl-1.5 pr-1 shadow-sm">
+                <div className="hidden items-center gap-2 sm:flex">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-xs font-bold text-white">
+                    {user?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="max-w-[140px] min-w-0 text-left lg:max-w-[180px]">
+                    <p className="truncate text-sm font-semibold leading-tight text-gray-800">{user?.full_name}</p>
+                    <p className="truncate text-xs font-medium text-primary-600">{user?.role}</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-gray-800">{user?.full_name}</p>
-                  <p className="text-xs text-primary-600 font-medium">{user?.role}</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 sm:px-3"
+                  title="Sign out"
+                >
+                  <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                  <span className="sm:inline">Logout</span>
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-xl text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-lg shadow-red-200 hover:shadow-xl hover:shadow-red-300 transition-all duration-200"
-              >
-                <ArrowRightOnRectangleIcon className="h-5 w-5 mr-2" />
-                Logout
-              </button>
             </div>
           </div>
         </div>
@@ -368,19 +552,19 @@ useEffect(() => {
 
         {/* Financial Grid */}
         {canViewFinancialDashboard && (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-3">
             {loading ? null : (
               <>
                 <div className="bg-white rounded-2xl shadow-md p-5 border border-indigo-100 flex flex-col justify-center">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Gross Revenue</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Collections In</p>
                   <p className="text-xl font-bold text-indigo-700">{formatCurrency(stats.total_gross_revenue)}</p>
                 </div>
                 <div className="bg-white rounded-2xl shadow-md p-5 border border-red-100 flex flex-col justify-center">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Returns</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Payouts / Refunds</p>
                   <p className="text-xl font-bold text-red-600">{formatCurrency(stats.total_return_revenue)}</p>
                 </div>
                 <div className="bg-white rounded-2xl shadow-md p-5 border border-blue-100 flex flex-col justify-center">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Revenue</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Net Cash Revenue</p>
                   <p className="text-xl font-bold text-blue-700">{formatCurrency(stats.net_revenue)}</p>
                 </div>
                 <div className="bg-white rounded-2xl shadow-md p-5 border border-orange-100 flex flex-col justify-center">
@@ -392,6 +576,44 @@ useEffect(() => {
                   <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.gross_profit)}</p>
                 </div>
               </>
+            )}
+          </div>
+        )}
+        {canViewFinancialDashboard && !loading && (
+          <div className="bg-white rounded-2xl shadow-sm p-3 border border-gray-100 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <p className="text-sm text-gray-600">
+                Cash-basis P&L uses anti-double-counting by matching manual collection references with shop-ledger payments.
+                <span className="ml-2 font-semibold text-red-600">
+                  Excluded: {formatCurrency(stats.duplicate_manual_daily_collections)}
+                </span>
+              </p>
+              <button
+                onClick={() => setShowCashDetails((prev) => !prev)}
+                className="self-start md:self-auto text-sm font-medium text-primary-700 hover:text-primary-800"
+              >
+                {showCashDetails ? 'Hide Details' : 'View Details'}
+              </button>
+            </div>
+            {showCashDetails && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm mt-3">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-gray-500">Shop Ledger Collections</p>
+                  <p className="font-bold text-gray-800">{formatCurrency(stats.total_shop_ledger_collections_received)}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-gray-500">Manual Collections (Raw)</p>
+                  <p className="font-bold text-gray-800">{formatCurrency(stats.total_manual_daily_collections_raw)}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-gray-500">Manual Collections (Deduped)</p>
+                  <p className="font-bold text-gray-800">{formatCurrency(stats.total_manual_daily_collections_deduped)}</p>
+                </div>
+                <div className="rounded-lg bg-indigo-50 p-3 border border-indigo-100">
+                  <p className="text-indigo-500">Collections In (Raw)</p>
+                  <p className="font-bold text-indigo-700">{formatCurrency(stats.total_collections_received_raw)}</p>
+                </div>
+              </div>
             )}
           </div>
         )}

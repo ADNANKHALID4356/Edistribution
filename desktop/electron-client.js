@@ -120,18 +120,21 @@ function createWindow() {
     mainWindow.setTitle(APP_WINDOW_TITLE);
   });
 
-  // In local development, prefer live dev-server build.
+  // Determine whether to use the development server or the production build
   const devUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000';
-  const shouldUseDevServer = !app.isPackaged;
+  const filePath = path.join(__dirname, 'build', 'index.html');
+  const hasBuild = fs.existsSync(filePath);
+  
+  // Use dev server if explicitly requested or if unpacked and no build exists
+  const shouldUseDevServer = process.env.USE_DEV_SERVER === 'true' || (!app.isPackaged && !hasBuild);
 
   if (shouldUseDevServer) {
     console.log('Loading development URL:', devUrl);
     mainWindow.loadURL(devUrl);
   } else {
-    const filePath = path.join(__dirname, 'build', 'index.html');
     console.log('Loading file:', filePath);
 
-    if (!fs.existsSync(filePath)) {
+    if (!hasBuild) {
       console.error('❌ ERROR: index.html not found at:', filePath);
       mainWindow.loadURL('data:text/html,<h1>Error: Build folder not found. Please run: npm run build</h1>');
     } else {
@@ -191,8 +194,17 @@ function createWindow() {
     }
   });
 
-  // Handle external links
+  // Handle popup windows and external links
+  // Allow in-app popup windows used for print dialogs (about:blank/blob).
+  // Send true external links to the system browser.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const isPrintPopup = !url || url === 'about:blank' || url.startsWith('about:') || url.startsWith('blob:');
+    const isLocalAppUrl = url.startsWith(`http://localhost:${DEV_SERVER_PORT}`) || url.startsWith('file://');
+
+    if (isPrintPopup || isLocalAppUrl) {
+      return { action: 'allow' };
+    }
+
     shell.openExternal(url);
     return { action: 'deny' };
   });

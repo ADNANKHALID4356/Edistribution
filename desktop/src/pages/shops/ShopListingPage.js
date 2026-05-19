@@ -10,70 +10,101 @@ const ShopListingPage = () => {
   const [shops, setShops] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
-      
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterSalesman, setFilterSalesman] = useState('');
   const [filterRoute, setFilterRoute] = useState('');
   const [filterCity, setFilterCity] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
-  const fetchInitialData = useCallback(async () => {
+  // Cascading filter options
+  const [salesmanOptions, setSalesmanOptions] = useState([]);
+  const [routeOptions, setRouteOptions] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+  const [statusOptions, setStatusOptions] = useState([]);
+
+  const buildShopQueryParams = useCallback(() => {
+    const params = { limit: 100 };
+    if (searchTerm.trim()) params.search = searchTerm.trim();
+    if (filterSalesman) params.salesman_id = filterSalesman;
+    if (filterRoute) params.route_id = filterRoute;
+    if (filterCity) params.city = filterCity;
+    if (filterStatus !== '') params.is_active = filterStatus;
+    return params;
+  }, [searchTerm, filterSalesman, filterRoute, filterCity, filterStatus]);
+
+  const fetchShops = useCallback(async () => {
     try {
       setLoading(true);
-      const [shopsResponse, routesResponse] = await Promise.all([
-        shopService.getAllShops({ limit: 100 }),
-        routeService.getActiveRoutes()
-      ]);
-      setShops(shopsResponse.data);
-      setRoutes(routesResponse.data);
+      const response = await shopService.getAllShops(buildShopQueryParams());
+      setShops(response.data || []);
     } catch (err) {
-      showToast(err.message || 'Failed to fetch data', 'error');
-      setTimeout(() => {}, 5000);
-      console.error('Fetch error:', err);
+      showToast(err.message || 'Failed to fetch shops', 'error');
+      console.error('Fetch shops error:', err);
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [buildShopQueryParams, showToast]);
+
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      const response = await shopService.getFilterOptions(buildShopQueryParams());
+      if (!response.success) return;
+
+      const nextSalesmen = response.data?.salesmen || [];
+      const nextRoutes = response.data?.routes || [];
+      const nextCities = response.data?.cities || [];
+      const nextStatuses = response.data?.statuses || [];
+
+      setSalesmanOptions(nextSalesmen);
+      setRouteOptions(nextRoutes);
+      setCityOptions(nextCities);
+      setStatusOptions(nextStatuses);
+
+      if (filterSalesman && !nextSalesmen.some((item) => String(item.value) === String(filterSalesman))) {
+        setFilterSalesman('');
+      }
+      if (filterRoute && !nextRoutes.some((item) => String(item.value) === String(filterRoute))) {
+        setFilterRoute('');
+      }
+      if (filterCity && !nextCities.some((item) => item.value === filterCity)) {
+        setFilterCity('');
+      }
+      if (filterStatus !== '' && !nextStatuses.some((item) => item.value === filterStatus)) {
+        setFilterStatus('');
+      }
+    } catch (err) {
+      console.error('Failed to fetch shop filter options:', err);
+    }
+  }, [buildShopQueryParams, filterSalesman, filterRoute, filterCity, filterStatus]);
 
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    const loadRoutesForTable = async () => {
+      try {
+        const routesResponse = await routeService.getActiveRoutes();
+        setRoutes(routesResponse.data || []);
+      } catch (err) {
+        console.error('Failed to fetch routes for table:', err);
+      }
+    };
+    loadRoutesForTable();
+  }, []);
 
-  const handleSearch = async () => {
-    try {
-      setLoading(true);
-      const params = {
-        limit: 100
-      };
-      
-      // Only add non-empty parameters
-      if (searchTerm.trim()) params.search = searchTerm.trim();
-      if (filterRoute) params.route_id = filterRoute;
-      if (filterCity.trim()) params.city = filterCity.trim();
-      if (filterStatus) params.is_active = filterStatus;
-      
-      const response = await shopService.getAllShops(params);
-      setShops(response.data);
-    } catch (err) {
-      showToast(err.message || 'Failed to search shops', 'error');
-      setTimeout(() => {}, 5000);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchShops();
+  }, [fetchShops]);
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   const handleClearFilters = () => {
     setSearchTerm('');
+    setFilterSalesman('');
     setFilterRoute('');
     setFilterCity('');
     setFilterStatus('');
-    fetchInitialData();
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
   };
 
   const handleDelete = async (id, shopName) => {
@@ -81,12 +112,12 @@ const ShopListingPage = () => {
       // First attempt: Try normal delete
       setLoading(true);
       await shopService.deleteShop(id, false);
-      
+
       // Success - shop deleted
       showToast(`Shop "${shopName}" deleted successfully`, 'success');
       setTimeout(() => {}, 5000);
-      fetchInitialData();
-      
+      fetchShops();
+
     } catch (err) {
       // Check if error is due to dependencies
       if (err.dependencies) {
@@ -95,7 +126,7 @@ const ShopListingPage = () => {
         if (orders > 0) dependencyMsg.push(`${orders} order(s)`);
         if (invoices > 0) dependencyMsg.push(`${invoices} invoice(s)`);
         if (deliveries > 0) dependencyMsg.push(`${deliveries} delivery(ies)`);
-        
+
         // Shop has dependencies - inform user
         showToast(`Cannot delete shop "${shopName}": has ${dependencyMsg.join(', ')}`, 'error');
         setTimeout(() => {}, 8000);
@@ -264,70 +295,89 @@ const ShopListingPage = () => {
         </div>
       </div>
 
-      
-
-      
-
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4 mb-6 no-print">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Search</label>
             <input
               type="text"
-              placeholder="Search shop name, owner, phone..."
+              placeholder="Shop name, owner, phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
           <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Salesman</label>
             <select
-              value={filterRoute}
-              onChange={(e) => setFilterRoute(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={filterSalesman}
+              onChange={(e) => setFilterSalesman(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="">All Routes</option>
-              {routes.map(route => (
-                <option key={route.id} value={route.id}>{route.route_name}</option>
+              <option value="">All Salesmen</option>
+              {salesmanOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                  {typeof option.count === 'number' ? ` (${option.count})` : ''}
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <input
-              type="text"
-              placeholder="Filter by city..."
-              value={filterCity}
-              onChange={(e) => setFilterCity(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Route</label>
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={filterRoute}
+              onChange={(e) => setFilterRoute(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="">All Status</option>
-              <option value="true">Active</option>
-              <option value="false">Inactive</option>
+              <option value="">All Routes</option>
+              {routeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                  {typeof option.count === 'number' ? ` (${option.count})` : ''}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <button
-              onClick={handleSearch}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+            <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
+            <select
+              value={filterCity}
+              onChange={(e) => setFilterCity(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              Search
-            </button>
+              <option value="">All Cities</option>
+              {cityOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                  {typeof option.count === 'number' ? ` (${option.count})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">All Status</option>
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                  {typeof option.count === 'number' ? ` (${option.count})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
             <button
               onClick={handleClearFilters}
-              className="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md"
+              className="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm"
             >
-              Clear
+              Clear Filters
             </button>
           </div>
         </div>
@@ -377,13 +427,13 @@ const ShopListingPage = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="10" className="px-4 py-4 text-center text-gray-500">
+                  <td colSpan="11" className="px-4 py-4 text-center text-gray-500">
                     Loading shops...
                   </td>
                 </tr>
               ) : shops.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-4 py-4 text-center text-gray-500">
+                  <td colSpan="11" className="px-4 py-4 text-center text-gray-500">
                     No shops found. Click "Add Shop" to create one.
                   </td>
                 </tr>
@@ -419,8 +469,8 @@ const ShopListingPage = () => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap no-print">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        shop.is_active 
-                          ? 'bg-green-100 text-green-800' 
+                        shop.is_active
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
                       }`}>
                         {shop.is_active ? 'Active' : 'Inactive'}

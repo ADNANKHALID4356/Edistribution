@@ -241,12 +241,14 @@ exports.createOrder = async (req, res) => {
       notes,
       items
     } = req.body;
+    const useSQLite = process.env.USE_SQLITE === 'true' && process.env.NODE_ENV === 'development';
+    const effectiveSalesmanId = useSQLite ? req.user?.id : salesman_id;
 
-    console.log('🔍 Extracted fields:', { salesman_id, shop_id, route_id, order_date, subtotal, discount_amount, total_amount, itemsCount: items?.length });
+    console.log('🔍 Extracted fields:', { salesman_id: effectiveSalesmanId, shop_id, route_id, order_date, subtotal, discount_amount, total_amount, itemsCount: items?.length });
 
     // Validation
-    if (!salesman_id || !shop_id || !items || items.length === 0) {
-      console.error('❌ Validation failed:', { salesman_id, shop_id, itemsCount: items?.length });
+    if (!effectiveSalesmanId || !shop_id || !items || items.length === 0) {
+      console.error('❌ Validation failed:', { salesman_id: effectiveSalesmanId, shop_id, itemsCount: items?.length });
       return res.status(400).json({
         success: false,
         message: 'Missing required fields: salesman_id, shop_id, and items are required'
@@ -283,7 +285,7 @@ exports.createOrder = async (req, res) => {
     
     console.log('🔍 Checking for duplicate orders with prefix:', expectedOrderNumberPrefix);
     console.log('🔍 Duplicate check parameters:', {
-      salesman_id,
+      salesman_id: effectiveSalesmanId,
       shop_id,
       order_date,
       total_amount,
@@ -301,7 +303,7 @@ exports.createOrder = async (req, res) => {
          AND ABS(net_amount - ?) < 0.01
        ORDER BY created_at DESC 
        LIMIT 1`,
-      [salesman_id, shop_id, order_date, total_amount]
+      [effectiveSalesmanId, shop_id, order_date, total_amount]
     );
     
     console.log('✅ Duplicate check query executed');
@@ -380,7 +382,7 @@ exports.createOrder = async (req, res) => {
     });
 
     const orderPayload = {
-      salesman_id: parseInt(salesman_id),
+      salesman_id: parseInt(effectiveSalesmanId),
       shop_id: parseInt(shop_id),
       route_id: route_id ? parseInt(route_id) : null,
       order_date,

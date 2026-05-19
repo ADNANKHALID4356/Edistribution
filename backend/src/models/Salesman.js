@@ -53,14 +53,34 @@ const Salesman = {
     } = filters;
 
     const offset = (page - 1) * limit;
-    let query = 'SELECT * FROM salesmen WHERE 1=1';
+    let query = 'SELECT s.* FROM salesmen s WHERE 1=1';
     const params = [];
 
     // Apply filters
     if (search) {
-      query += ` AND (full_name LIKE ? OR salesman_code LIKE ? OR phone LIKE ? OR email LIKE ?)`;
+      query += ` AND (
+        s.full_name LIKE ?
+        OR s.salesman_code LIKE ?
+        OR s.phone LIKE ?
+        OR s.email LIKE ?
+        OR s.city LIKE ?
+        OR EXISTS (
+          SELECT 1
+          FROM routes r
+          WHERE r.salesman_id = s.id
+            AND (r.route_name LIKE ? OR r.route_code LIKE ?)
+        )
+      )`;
       const searchPattern = `%${search}%`;
-      params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+      params.push(
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern
+      );
     }
 
     if (city) {
@@ -86,13 +106,33 @@ const Salesman = {
     const [salesmen] = await db.query(query, params);
 
     // Get total count
-    let countQuery = 'SELECT COUNT(*) as total FROM salesmen WHERE 1=1';
+    let countQuery = 'SELECT COUNT(*) as total FROM salesmen s WHERE 1=1';
     const countParams = [];
 
     if (search) {
-      countQuery += ` AND (full_name LIKE ? OR salesman_code LIKE ? OR phone LIKE ? OR email LIKE ?)`;
+      countQuery += ` AND (
+        s.full_name LIKE ?
+        OR s.salesman_code LIKE ?
+        OR s.phone LIKE ?
+        OR s.email LIKE ?
+        OR s.city LIKE ?
+        OR EXISTS (
+          SELECT 1
+          FROM routes r
+          WHERE r.salesman_id = s.id
+            AND (r.route_name LIKE ? OR r.route_code LIKE ?)
+        )
+      )`;
       const searchPattern = `%${search}%`;
-      countParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+      countParams.push(
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern,
+        searchPattern
+      );
     }
 
     if (city) {
@@ -350,6 +390,19 @@ const Salesman = {
   async getSummary() {
     const [summary] = await db.query('SELECT * FROM v_salesmen_summary ORDER BY full_name ASC');
     return summary;
+  },
+
+  /**
+   * Get distinct city list used by salesmen.
+   */
+  async getCityOptions() {
+    const [rows] = await db.query(
+      `SELECT DISTINCT city
+       FROM salesmen
+       WHERE city IS NOT NULL AND city != ''
+       ORDER BY city ASC`
+    );
+    return rows.map((row) => row.city);
   },
 
   /**

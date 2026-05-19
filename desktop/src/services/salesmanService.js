@@ -144,6 +144,18 @@ const salesmanService = {
   },
 
   /**
+   * Get distinct city options
+   */
+  async getCityOptions() {
+    try {
+      const response = await api.get('/desktop/salesmen/city-options');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  /**
    * Get salesmen summary
    */
   async getSalesmenSummary() {

@@ -13,6 +13,16 @@ const shopService = {
     }
   },
 
+  // Get cascading filter options for shop listing
+  getFilterOptions: async (params = {}) => {
+    try {
+      const response = await api.get('/desktop/shops/filter-options', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   // Get shops by route
   getShopsByRoute: async (routeId) => {
     try {

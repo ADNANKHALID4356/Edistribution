@@ -193,12 +193,21 @@ const DeliveryTrackingPage = () => {
     }
     
     try {
-      const printWindow = window.open('', '_blank');
-      
-      if (!printWindow) {
-        showToast('Pop-up blocked! Please allow pop-ups.', 'error');
-        setTimeout(() => {}, 5000);
-        return;
+      const printFrame = document.createElement('iframe');
+      printFrame.setAttribute('title', 'delivery-print-frame');
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = '0';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const frameWindow = printFrame.contentWindow;
+      const frameDocument = frameWindow?.document;
+      if (!frameWindow || !frameDocument) {
+        throw new Error('Unable to initialize print frame');
       }
 
       // Calculate effective discount (header fields are scaled after stock returns on the backend)
@@ -233,7 +242,8 @@ const DeliveryTrackingPage = () => {
       const returnDocs = Array.isArray(selectedDelivery.returns) ? selectedDelivery.returns : [];
       const hasReturnDocs = returnDocs.length > 0;
       
-      printWindow.document.write(`
+      frameDocument.open();
+      frameDocument.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -243,190 +253,173 @@ const DeliveryTrackingPage = () => {
             * { margin: 0; padding: 0; box-sizing: border-box; }
             
             @page {
-              size: A4;
-              margin: 12mm;
+              size: A6 portrait;
+              margin: 2mm;
             }
             
             body {
-              font-family: 'Segoe UI', Arial, sans-serif;
+              font-family: Arial, sans-serif;
               width: auto;
               min-height: auto;
               margin: 0;
               padding: 0;
               background: white;
-              color: #1a1a1a;
-              font-size: 10pt;
-              line-height: 1.35;
+              color: #111;
+              font-size: 6pt;
+              line-height: 1.1;
             }
             
             .header {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              border-bottom: 3px solid #1e40af;
-              padding-bottom: 15px;
-              margin-bottom: 20px;
-            }
-            .header-left { flex: 1; }
-            .company-name {
-              font-size: 16pt;
-              font-weight: 700;
-              color: #1e40af;
+              border-bottom: 1px solid #111;
+              padding-bottom: 3px;
               margin-bottom: 4px;
             }
-            .company-details {
-              font-size: 9pt;
-              color: #555;
-              line-height: 1.5;
+            .header-top {
+              display: flex;
+              justify-content: space-between;
+              align-items: baseline;
+              gap: 4px;
             }
-            .header-right {
+            .company-name {
+              font-size: 7.5pt;
+              font-weight: 700;
+              color: #111;
+            }
+            .header-meta {
               text-align: right;
+              font-size: 5.5pt;
+              line-height: 1.15;
             }
             .doc-title {
-              font-size: 14pt;
+              font-size: 6.5pt;
               font-weight: 700;
-              color: #1e40af;
-              margin-bottom: 5px;
+              text-transform: uppercase;
             }
-            .challan-number {
-              font-size: 10pt;
-              font-weight: 600;
-              color: #333;
-            }
-            .challan-date {
-              font-size: 9pt;
-              color: #666;
-              margin-top: 3px;
+            .company-details {
+              font-size: 5pt;
+              color: #444;
+              margin-top: 1px;
             }
             .status-badge {
               display: inline-block;
-              padding: 3px 12px;
-              border-radius: 12px;
-              font-size: 9pt;
+              padding: 0 3px;
+              border: 1px solid #333;
+              font-size: 5pt;
               font-weight: 600;
               text-transform: uppercase;
-              margin-top: 5px;
-              background: #dcfce7;
-              color: #166534;
             }
             
-            .info-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 15px;
-              margin-bottom: 20px;
+            .info-strip {
+              border: 1px solid #ccc;
+              padding: 2px 3px;
+              margin-bottom: 4px;
+              font-size: 5.5pt;
+              line-height: 1.2;
             }
-            .info-box {
-              border: 1px solid #e5e7eb;
-              border-radius: 6px;
-              padding: 12px 15px;
-            }
-            .info-box-title {
-              font-size: 9pt;
-              font-weight: 700;
-              text-transform: uppercase;
-              color: #1e40af;
-              margin-bottom: 8px;
-              padding-bottom: 5px;
-              border-bottom: 1px solid #e5e7eb;
-            }
-            .info-row {
+            .info-line {
               display: flex;
-              justify-content: space-between;
-              padding: 2px 0;
-              font-size: 9pt;
+              gap: 3px;
+              flex-wrap: wrap;
             }
-            .info-label {
-              font-weight: 600;
-              color: #555;
-              min-width: 40%;
-            }
-            .info-value {
-              text-align: right;
-              color: #1a1a1a;
+            .info-line + .info-line { margin-top: 1px; }
+            .info-tag {
+              font-weight: 700;
+              color: #333;
             }
             
             .items-table {
               width: 100%;
               border-collapse: collapse;
-              margin-bottom: 20px;
-              font-size: 9pt;
+              margin-bottom: 4px;
+              font-size: 5.5pt;
+              table-layout: fixed;
             }
             .items-table thead th {
-              background: #1e40af;
-              color: white;
-              padding: 8px 10px;
+              background: #eee;
+              color: #111;
+              padding: 1px 1px;
               text-align: left;
-              font-weight: 600;
-              font-size: 9pt;
+              font-weight: 700;
+              font-size: 5pt;
               text-transform: uppercase;
+              border: 1px solid #aaa;
             }
             .items-table thead th.right { text-align: right; }
             .items-table tbody td {
-              padding: 7px 10px;
-              border-bottom: 1px solid #e5e7eb;
+              padding: 1px 1px;
+              border: 1px solid #ccc;
+              vertical-align: top;
+              word-wrap: break-word;
             }
             .items-table tbody td.right { text-align: right; }
-            .items-table tbody td.discount { text-align: right; color: #dc2626; }
-            .items-table tbody tr:nth-child(even) { background: #f8fafc; }
             .items-table tfoot td {
-              padding: 8px 10px;
+              padding: 1px 1px;
               font-weight: 700;
-              border-top: 2px solid #1e40af;
+              border: 1px solid #aaa;
+              font-size: 5.5pt;
+            }
+            
+            .notice-box {
+              margin-bottom: 3px;
+              padding: 2px 3px;
+              border: 1px solid #ccc;
+              font-size: 5.5pt;
+              line-height: 1.15;
+            }
+            .notice-title {
+              font-weight: 700;
+              text-transform: uppercase;
+              font-size: 5pt;
             }
             
             .financial-section {
-              width: 55%;
+              width: 72%;
               margin-left: auto;
-              margin-bottom: 25px;
+              margin-bottom: 4px;
             }
             .fin-row {
               display: flex;
               justify-content: space-between;
-              padding: 5px 10px;
-              font-size: 9.5pt;
+              padding: 1px 2px;
+              font-size: 5.5pt;
             }
-            .fin-row.border { border-bottom: 1px solid #e5e7eb; }
-            .fin-row.discount { color: #dc2626; }
-            .fin-row.total {
-              background: #1e40af;
-              color: white;
+            .fin-row.border { border-bottom: 1px solid #ddd; }
+            .fin-row.total,
+            .fin-row.total-dark {
+              border: 1px solid #111;
               font-weight: 700;
-              font-size: 12pt;
-              padding: 10px 15px;
-              border-radius: 5px;
-              margin-top: 8px;
+              font-size: 6pt;
+              padding: 2px 3px;
+              margin-top: 1px;
             }
             
             .signatures {
               display: grid;
               grid-template-columns: 1fr 1fr 1fr 1fr;
-              gap: 20px;
-              margin-top: 40px;
-              padding-top: 15px;
-              border-top: 1px solid #e5e7eb;
+              gap: 4px;
+              margin-top: 5px;
+              padding-top: 3px;
+              border-top: 1px solid #ccc;
             }
             .sig-box { text-align: center; }
             .sig-line {
               border-bottom: 1px solid #333;
-              height: 50px;
-              margin-bottom: 5px;
+              height: 12px;
+              margin-bottom: 1px;
             }
-            .sig-label { font-size: 9pt; font-weight: 600; color: #333; }
-            .sig-role { font-size: 8pt; color: #888; }
+            .sig-label { font-size: 5pt; font-weight: 600; color: #222; }
             
             .footer {
               text-align: center;
-              margin-top: 30px;
-              padding-top: 10px;
-              border-top: 2px solid #1e40af;
-              font-size: 9pt;
-              color: #888;
+              margin-top: 3px;
+              font-size: 4.5pt;
+              color: #666;
             }
             
             @media print {
               body { width: auto; padding: 0; min-height: auto; }
               .no-print { display: none; }
+              .items-table thead th { background: #f3f3f3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             }
           </style>
         </head>
@@ -434,38 +427,35 @@ const DeliveryTrackingPage = () => {
           
           <!-- Header -->
           <div class="header">
-            <div class="header-left">
+            <div class="header-top">
               <div class="company-name">${companySettings?.company_name || 'COMPANY NAME'}</div>
-              <div class="company-details">
-                ${companySettings?.company_address || 'Address'}<br>
-                Tel: ${companySettings?.company_phone || 'N/A'} | Email: ${companySettings?.company_email || 'N/A'}
+              <div class="header-meta">
+                <div class="doc-title">Delivery Challan</div>
+                <div>${selectedDelivery.challan_number}</div>
+                <div>${new Date(selectedDelivery.delivery_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })} | <span class="status-badge">${selectedDelivery.status.replace('_', ' ')}</span></div>
               </div>
             </div>
-            <div class="header-right">
-              <div class="doc-title">DELIVERY CHALLAN</div>
-              <div class="challan-number">${selectedDelivery.challan_number}</div>
-              <div class="challan-date">Date: ${new Date(selectedDelivery.delivery_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-              <div class="status-badge">${selectedDelivery.status.replace('_', ' ')}</div>
+            <div class="company-details">
+              ${companySettings?.company_phone || 'N/A'}${companySettings?.company_address ? ' | ' + companySettings.company_address : ''}
             </div>
           </div>
           
-          <!-- Info Grid -->
-          <div class="info-grid">
-            <div class="info-box">
-              <div class="info-box-title">Customer Details</div>
-              <div class="info-row"><span class="info-label">Shop:</span><span class="info-value">${selectedDelivery.shop_name}</span></div>
-              <div class="info-row"><span class="info-label">Address:</span><span class="info-value">${selectedDelivery.shop_address || 'N/A'}</span></div>
-              <div class="info-row"><span class="info-label">Contact:</span><span class="info-value">${selectedDelivery.shop_contact || 'N/A'}</span></div>
-              ${selectedDelivery.salesman_name ? `<div class="info-row"><span class="info-label">Salesman:</span><span class="info-value">${selectedDelivery.salesman_name}</span></div>` : ''}
-              ${selectedDelivery.route_name ? `<div class="info-row"><span class="info-label">Route:</span><span class="info-value">${selectedDelivery.route_name}</span></div>` : ''}
+          <!-- Compact Info -->
+          <div class="info-strip">
+            <div class="info-line">
+              <span><span class="info-tag">Shop:</span> ${selectedDelivery.shop_name}</span>
+              <span><span class="info-tag">Ph:</span> ${selectedDelivery.shop_contact || 'N/A'}</span>
+              ${selectedDelivery.salesman_name ? `<span><span class="info-tag">Sm:</span> ${selectedDelivery.salesman_name}</span>` : ''}
             </div>
-            <div class="info-box">
-              <div class="info-box-title">Delivery Details</div>
-              <div class="info-row"><span class="info-label">Driver:</span><span class="info-value">${selectedDelivery.driver_name || 'N/A'}</span></div>
-              <div class="info-row"><span class="info-label">Phone:</span><span class="info-value">${selectedDelivery.driver_phone || 'N/A'}</span></div>
-              <div class="info-row"><span class="info-label">Vehicle:</span><span class="info-value">${selectedDelivery.vehicle_number || 'N/A'} ${selectedDelivery.vehicle_type ? '(' + selectedDelivery.vehicle_type + ')' : ''}</span></div>
-              ${selectedDelivery.driver_cnic ? `<div class="info-row"><span class="info-label">CNIC:</span><span class="info-value">${selectedDelivery.driver_cnic}</span></div>` : ''}
-              <div class="info-row"><span class="info-label">Warehouse:</span><span class="info-value">${selectedDelivery.warehouse_name || 'N/A'}</span></div>
+            <div class="info-line">
+              <span><span class="info-tag">Addr:</span> ${selectedDelivery.shop_address || 'N/A'}</span>
+              ${selectedDelivery.route_name ? `<span><span class="info-tag">Route:</span> ${selectedDelivery.route_name}</span>` : ''}
+            </div>
+            <div class="info-line">
+              <span><span class="info-tag">Driver:</span> ${selectedDelivery.driver_name || 'N/A'}</span>
+              <span><span class="info-tag">Veh:</span> ${selectedDelivery.vehicle_number || 'N/A'}</span>
+              <span><span class="info-tag">WH:</span> ${selectedDelivery.warehouse_name || 'N/A'}</span>
+              ${selectedDelivery.order_id ? `<span><span class="info-tag">Ord:</span> #${selectedDelivery.order_id}</span>` : ''}
             </div>
           </div>
           
@@ -473,15 +463,11 @@ const DeliveryTrackingPage = () => {
           <table class="items-table">
             <thead>
               <tr>
-                <th style="width:30px">#</th>
-                <th>Product</th>
-                <th style="width:52px">Code</th>
-                <th class="right" style="width:52px">Sent</th>
-                <th class="right" style="width:52px">Ret.</th>
-                <th class="right" style="width:52px">Kept</th>
-                <th class="right" style="width:72px">Unit Price</th>
-                <th class="right" style="width:72px">Disc %</th>
-                <th class="right" style="width:88px">Line net (kept)</th>
+                <th style="width:10px">#</th>
+                <th>Item</th>
+                <th class="right" style="width:18px">Qty</th>
+                <th class="right" style="width:26px">Rate</th>
+                <th class="right" style="width:30px">Amt</th>
               </tr>
             </thead>
             <tbody>
@@ -498,154 +484,100 @@ const DeliveryTrackingPage = () => {
                 const itemDiscountPct = parseFloat(item.discount_percentage || 0);
                 const effectiveItemDiscount = itemDiscountAmt > 0 ? itemDiscountAmt : (grossTotal > itemTotal ? grossTotal - itemTotal : 0);
                 const effectiveItemDiscountPct = itemDiscountPct > 0 ? itemDiscountPct : (grossTotal > 0 && effectiveItemDiscount > 0 ? (effectiveItemDiscount / grossTotal * 100) : 0);
-                const retVal = qty > 0 ? lineNetFull * (ret / qty) : 0;
+                const qtyLabel = ret > 0 ? `${kept}<span style="font-size:4.5pt">(-${ret})</span>` : `${kept}`;
                 return `
               <tr>
                 <td>${index + 1}</td>
-                <td>${item.product_name}${ret > 0 ? ' <span style="color:#b45309;font-size:8pt">(partial return)</span>' : ''}</td>
-                <td>${item.product_code || '-'}</td>
-                <td class="right">${qty}</td>
-                <td class="right">${ret > 0 ? ret : '—'}</td>
-                <td class="right">${kept}</td>
-                <td class="right">Rs. ${price.toFixed(2)}</td>
-                <td class="discount">${effectiveItemDiscount > 0 ? effectiveItemDiscountPct.toFixed(1) + '% (-Rs. ' + effectiveItemDiscount.toFixed(2) + ')' : '-'}</td>
-                <td class="right"><strong>Rs. ${lineNetKept.toFixed(2)}</strong>${ret > 0 ? '<br><span style="font-size:8pt;color:#666">Returned value: Rs. ' + retVal.toFixed(2) + '</span>' : ''}</td>
+                <td>${item.product_name}${item.product_code ? ` <span style="font-size:4.5pt;color:#555">[${item.product_code}]</span>` : ''}${effectiveItemDiscount > 0 ? ` <span style="font-size:4.5pt">-${effectiveItemDiscountPct.toFixed(0)}%</span>` : ''}</td>
+                <td class="right">${qtyLabel}</td>
+                <td class="right">${price.toFixed(0)}</td>
+                <td class="right"><strong>${lineNetKept.toFixed(0)}</strong></td>
               </tr>`;
               }).join('')}
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="3" style="text-align:right">Total lines: ${items.length}</td>
-                <td class="right"></td>
-                <td class="right">${hasReturns ? totalReturnedUnits : '—'}</td>
+                <td colspan="2" style="text-align:right">${items.length} items${hasReturns ? ` | ret ${totalReturnedUnits}` : ''}</td>
                 <td class="right">${totalKeptQty}</td>
-                <td colspan="2"></td>
-                <td class="right">Rs. ${sub.toFixed(2)}</td>
+                <td></td>
+                <td class="right">${sub.toFixed(0)}</td>
               </tr>
             </tfoot>
           </table>
           
           ${hasReturns ? `
-          <div style="margin-bottom: 18px; padding: 12px 14px; background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; font-size: 10pt;">
-            <div style="font-weight: 700; color: #9a3412; margin-bottom: 6px; text-transform: uppercase;">Returns on this challan (cumulative)</div>
-            <div style="color: #431407;">Total units returned: <strong>${totalReturnedUnits}</strong></div>
-            <div style="color: #431407;">Total returned value (net, proportional): <strong>Rs. ${totalReturnedValue.toFixed(2)}</strong></div>
-            <div style="color: #78716c; font-size: 9pt; margin-top: 4px;">Amounts follow line discounts; header totals below reflect goods kept after returns.</div>
+          <div class="notice-box">
+            <span class="notice-title">Returns:</span> ${totalReturnedUnits} units | Rs. ${totalReturnedValue.toFixed(0)}
           </div>
           ` : ''}
 
           ${hasReturnDocs ? `
-          <div style="margin-bottom: 18px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 10pt;">
-            <div style="font-weight: 700; color: #0f172a; margin-bottom: 10px; text-transform: uppercase;">Return documents</div>
+          <div class="notice-box">
+            <span class="notice-title">Ret docs:</span>
             ${returnDocs.map((ret) => {
               const hdr = ret || {};
               const hdrNo = hdr.return_number || '-';
-              const hdrDate = hdr.return_date ? new Date(hdr.return_date).toLocaleString('en-GB') : 'N/A';
-              const hdrReason = hdr.reason || '';
-              const hdrNotes = hdr.notes || '';
               const hdrAmt = parseFloat(hdr.total_return_amount || 0);
               const hdrQty = parseFloat(hdr.total_quantity_returned || 0);
-              const lines = Array.isArray(hdr.items) ? hdr.items : [];
-              return `
-                <div style="padding: 10px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; margin-bottom: 10px;">
-                  <div style="display:flex; justify-content: space-between; gap: 12px; font-weight: 700;">
-                    <div>Return #: ${hdrNo}</div>
-                    <div style="text-align:right">Amount: Rs. ${hdrAmt.toFixed(2)}</div>
-                  </div>
-                  <div style="display:flex; justify-content: space-between; gap: 12px; color:#334155; margin-top: 2px;">
-                    <div>Date: ${hdrDate}</div>
-                    <div style="text-align:right">Qty: ${hdrQty}</div>
-                  </div>
-                  ${hdrReason ? `<div style="margin-top: 6px; color:#334155;"><strong>Reason:</strong> ${hdrReason}</div>` : ''}
-                  ${hdrNotes ? `<div style="margin-top: 2px; color:#334155;"><strong>Notes:</strong> ${hdrNotes}</div>` : ''}
-                  ${lines.length ? `
-                    <div style="margin-top: 8px; font-weight: 700; color:#0f172a;">Returned items</div>
-                    <table style="width:100%; border-collapse: collapse; margin-top: 6px; font-size: 9pt;">
-                      <thead>
-                        <tr>
-                          <th style="text-align:left; border-bottom:1px solid #e2e8f0; padding: 4px 0;">Product</th>
-                          <th style="text-align:right; border-bottom:1px solid #e2e8f0; padding: 4px 0; width:60px;">Qty</th>
-                          <th style="text-align:right; border-bottom:1px solid #e2e8f0; padding: 4px 0; width:90px;">Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${lines.map((li) => {
-                          const ln = li || {};
-                          const nm = ln.product_name || '-';
-                          const q = parseFloat(ln.quantity_returned || 0);
-                          const v = parseFloat(ln.return_amount || 0);
-                          return `
-                            <tr>
-                              <td style="padding: 4px 0; border-bottom:1px dashed #e2e8f0;">${nm}</td>
-                              <td style="padding: 4px 0; border-bottom:1px dashed #e2e8f0; text-align:right;">${q}</td>
-                              <td style="padding: 4px 0; border-bottom:1px dashed #e2e8f0; text-align:right;">Rs. ${v.toFixed(2)}</td>
-                            </tr>
-                          `;
-                        }).join('')}
-                      </tbody>
-                    </table>
-                  ` : ''}
-                </div>
-              `;
-            }).join('')}
+              return `#${hdrNo} Q${hdrQty}/Rs${hdrAmt.toFixed(0)}`;
+            }).join(' | ')}
           </div>
           ` : ''}
           
           <!-- Financial Summary -->
           <div class="financial-section">
             <div class="fin-row border">
-              <span>Items Subtotal:</span>
-              <span>Rs. ${sub.toFixed(2)}</span>
+              <span>Subtotal</span>
+              <span>${sub.toFixed(0)}</span>
             </div>
             ${effectiveDiscount > 0 ? `
-            <div class="fin-row border discount">
-              <span>Discount (${effectiveDiscountPct.toFixed(2)}%):</span>
-              <span>- Rs. ${effectiveDiscount.toFixed(2)}</span>
+            <div class="fin-row border">
+              <span>Disc ${effectiveDiscountPct.toFixed(0)}%</span>
+              <span>-${effectiveDiscount.toFixed(0)}</span>
             </div>
             ` : ''}
             ${parseFloat(selectedDelivery.tax_amount || 0) > 0 ? `
             <div class="fin-row border">
-              <span>Tax (${parseFloat(selectedDelivery.tax_percentage || 0).toFixed(1)}%):</span>
-              <span>+ Rs. ${parseFloat(selectedDelivery.tax_amount || 0).toFixed(2)}</span>
+              <span>Tax</span>
+              <span>+${parseFloat(selectedDelivery.tax_amount || 0).toFixed(0)}</span>
             </div>
             ` : ''}
             ${parseFloat(selectedDelivery.shipping_charges || 0) > 0 ? `
             <div class="fin-row border">
-              <span>Shipping Charges:</span>
-              <span>+ Rs. ${parseFloat(selectedDelivery.shipping_charges || 0).toFixed(2)}</span>
+              <span>Ship</span>
+              <span>+${parseFloat(selectedDelivery.shipping_charges || 0).toFixed(0)}</span>
             </div>
             ` : ''}
             ${parseFloat(selectedDelivery.other_charges || 0) > 0 ? `
             <div class="fin-row border">
-              <span>Other Charges:</span>
-              <span>+ Rs. ${parseFloat(selectedDelivery.other_charges || 0).toFixed(2)}</span>
+              <span>Other</span>
+              <span>+${parseFloat(selectedDelivery.other_charges || 0).toFixed(0)}</span>
             </div>
             ` : ''}
             ${parseFloat(selectedDelivery.round_off || 0) !== 0 ? `
             <div class="fin-row border">
-              <span>Round Off:</span>
-              <span>Rs. ${parseFloat(selectedDelivery.round_off || 0).toFixed(2)}</span>
+              <span>R/off</span>
+              <span>${parseFloat(selectedDelivery.round_off || 0).toFixed(0)}</span>
             </div>
             ` : ''}
             <div class="fin-row total">
-              <span>GRAND TOTAL:</span>
-              <span>Rs. ${gt.toFixed(2)}</span>
+              <span>TOTAL</span>
+              <span>Rs. ${gt.toFixed(0)}</span>
             </div>
             
             ${selectedDelivery.shop_current_balance !== undefined && selectedDelivery.shop_current_balance !== null ? `
-            <div style="margin-top: 15px; padding-top: 10px; border-top: 2px dashed #1e40af;">
-              <div style="text-align: left; font-size: 9pt; font-weight: bold; color: #1e40af; margin-bottom: 5px; text-transform: uppercase; padding: 0 10px;">Shop Account Status</div>
-              <div class="fin-row" style="font-size: 10pt; color: #555; padding: 3px 10px;">
-                <span>Previous Balance:</span>
-                <span>Rs. ${(parseFloat(selectedDelivery.shop_current_balance) - gt).toFixed(2)}</span>
+            <div style="margin-top: 2px; padding-top: 2px; border-top: 1px dashed #999;">
+              <div class="fin-row" style="padding: 0 2px;">
+                <span>Prev bal</span>
+                <span>${(parseFloat(selectedDelivery.shop_current_balance) - gt).toFixed(0)}</span>
               </div>
-              <div class="fin-row" style="font-size: 10pt; color: #555; padding: 3px 10px;">
-                <span>Current Bill:</span>
-                <span>Rs. ${gt.toFixed(2)}</span>
+              <div class="fin-row" style="padding: 0 2px;">
+                <span>Bill</span>
+                <span>${gt.toFixed(0)}</span>
               </div>
-              <div class="fin-row total" style="background: #0f172a; margin-top: 5px; padding: 8px 15px; font-size: 12pt;">
-                <span>TOTAL OUTSTANDING:</span>
-                <span>Rs. ${parseFloat(selectedDelivery.shop_current_balance).toFixed(2)}</span>
+              <div class="fin-row total-dark">
+                <span>Due</span>
+                <span>Rs. ${parseFloat(selectedDelivery.shop_current_balance).toFixed(0)}</span>
               </div>
             </div>
             ` : ''}
@@ -653,8 +585,8 @@ const DeliveryTrackingPage = () => {
           </div>
           
           ${selectedDelivery.notes ? `
-          <div style="margin-bottom: 15px; padding: 8px 12px; background: #f8fafc; border-left: 3px solid #1e40af; font-size: 10pt;">
-            <strong>Notes:</strong> ${selectedDelivery.notes}
+          <div class="notice-box">
+            <span class="info-tag">Note:</span> ${selectedDelivery.notes}
           </div>
           ` : ''}
           
@@ -662,44 +594,61 @@ const DeliveryTrackingPage = () => {
           <div class="signatures">
             <div class="sig-box">
               <div class="sig-line"></div>
-              <div class="sig-label">Prepared By</div>
-              <div class="sig-role">Warehouse Staff</div>
+              <div class="sig-label">Prepared</div>
             </div>
             <div class="sig-box">
               <div class="sig-line"></div>
-              <div class="sig-label">Dispatched By</div>
-              <div class="sig-role">Manager</div>
+              <div class="sig-label">Dispatch</div>
             </div>
             <div class="sig-box">
               <div class="sig-line"></div>
-              <div class="sig-label">Received By</div>
-              <div class="sig-role">Driver</div>
+              <div class="sig-label">Driver</div>
             </div>
             <div class="sig-box">
               <div class="sig-line"></div>
               <div class="sig-label">Customer</div>
-              <div class="sig-role">Sign & Stamp</div>
             </div>
           </div>
           
           <!-- Footer -->
           <div class="footer">
-            <div>Thank you for your business!</div>
-            <div style="margin-top: 3px;">
-              Generated: ${new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-            </div>
+            ${new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
           </div>
 
-          <script>
-            window.onload = function() {
-              setTimeout(function() { window.print(); }, 500);
-            };
-          </script>
         </body>
       </html>
     `);
-      printWindow.document.close();
-      console.log('✅ Print window created successfully');
+      frameDocument.close();
+
+      const cleanupPrintFrame = () => {
+        setTimeout(() => {
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame);
+          }
+        }, 1200);
+      };
+
+      const handleAfterPrint = () => {
+        frameWindow.removeEventListener('afterprint', handleAfterPrint);
+        cleanupPrintFrame();
+      };
+
+      frameWindow.addEventListener('afterprint', handleAfterPrint);
+
+      setTimeout(() => {
+        try {
+          frameWindow.focus();
+          frameWindow.print();
+        } catch (printErr) {
+          console.error('❌ Frame print error:', printErr);
+          cleanupPrintFrame();
+          showToast('Failed to open print dialog', 'error');
+        }
+      }, 350);
+
+      // Safety cleanup even if afterprint is not fired by OS/browser.
+      setTimeout(cleanupPrintFrame, 60000);
+      console.log('✅ Delivery print dialog triggered');
     } catch (error) {
       console.error('❌ Print error:', error);
       showToast('Error: ' + error.message, 'error');

@@ -26,9 +26,8 @@ USER = os.environ.get("VPS_SSH_USER", "adminops")
 PASSWORD = os.environ.get("VPS_SSH_PASSWORD")
 REPO_DIR = os.environ.get("VPS_REPO_DIR", "/var/www/distribution-system")
 PM2_NAME = os.environ.get("VPS_PM2_NAME", "distribution-api")
-# On the VPS, origin may point at a different fork; production uses master_repo → distribution_system-main
-GIT_REMOTE = os.environ.get("VPS_GIT_REMOTE", "master_repo")
-GIT_REF = os.environ.get("VPS_GIT_REF", "master")
+GIT_REMOTE = os.environ.get("VPS_GIT_REMOTE", "origin")
+GIT_REF = os.environ.get("VPS_GIT_REF", "main")
 
 
 def _reconfigure_stdout() -> None:

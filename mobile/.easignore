@@ -1,0 +1,8 @@
+# Reduce upload size by excluding large files
+node_modules/
+.git/
+.expo/
+dist/
+*.log
+.vscode/
+.idea/

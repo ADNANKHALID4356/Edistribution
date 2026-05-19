@@ -13,12 +13,17 @@ const bcrypt = require('bcryptjs');
  */
 exports.getAllSalesmen = async (req, res) => {
   try {
+    const parsedActive =
+      req.query.is_active === undefined || req.query.is_active === ''
+        ? null
+        : parseInt(req.query.is_active, 10);
+
     const filters = {
       page: parseInt(req.query.page) || 1,
       limit: parseInt(req.query.limit) || 10,
       search: req.query.search || '',
       city: req.query.city || '',
-      is_active: req.query.is_active !== undefined ? parseInt(req.query.is_active) : null,
+      is_active: Number.isNaN(parsedActive) ? null : parsedActive,
       sortBy: req.query.sortBy || 'created_at',
       sortOrder: req.query.sortOrder || 'DESC'
     };
@@ -460,6 +465,26 @@ exports.getActiveSalesmen = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch active salesmen',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get distinct salesman city options
+ */
+exports.getCityOptions = async (req, res) => {
+  try {
+    const cities = await Salesman.getCityOptions();
+    res.json({
+      success: true,
+      data: cities
+    });
+  } catch (error) {
+    console.error('Error fetching salesman city options:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch city options',
       error: error.message
     });
   }

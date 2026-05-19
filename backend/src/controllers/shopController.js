@@ -13,72 +13,101 @@ const hasManagementScope = (reqUser) => {
   return role === ROLES.ADMIN || role === ROLES.SENIOR_MANAGER || role === ROLES.MANAGER;
 };
 
+const parseShopFiltersFromQuery = (query = {}) => ({
+  search: query.search || '',
+  route_id: query.route_id || '',
+  salesman_id: query.salesman_id || '',
+  city: query.city || '',
+  is_active:
+    query.is_active !== undefined && query.is_active !== ''
+      ? query.is_active === 'true'
+      : null
+});
+
+const buildShopListWhere = (reqUser, filters = {}, excludeField = null) => {
+  let where = ' WHERE 1=1';
+  const params = [];
+
+  if (reqUser && !hasManagementScope(reqUser)) {
+    if (reqUser.salesman_id) {
+      where += ' AND s.salesman_id = ?';
+      params.push(reqUser.salesman_id);
+    } else {
+      where += ' AND 1=0';
+    }
+  }
+
+  const { search, route_id, salesman_id, city, is_active } = filters;
+
+  if (search) {
+    const like = `%${search}%`;
+    if (useSQLite) {
+      where += ' AND (s.shop_code LIKE ? COLLATE NOCASE OR s.shop_name LIKE ? COLLATE NOCASE OR s.owner_name LIKE ? COLLATE NOCASE OR s.phone LIKE ?)';
+    } else {
+      where += ' AND (s.shop_code LIKE ? OR s.shop_name LIKE ? OR s.owner_name LIKE ? OR s.phone LIKE ?)';
+    }
+    params.push(like, like, like, like);
+  }
+
+  if (route_id && excludeField !== 'route_id') {
+    where += ' AND s.route_id = ?';
+    params.push(route_id);
+  }
+
+  if (salesman_id && excludeField !== 'salesman_id') {
+    if (salesman_id === 'unassigned') {
+      where += ' AND s.salesman_id IS NULL';
+    } else {
+      where += ' AND s.salesman_id = ?';
+      params.push(salesman_id);
+    }
+  }
+
+  if (city && excludeField !== 'city') {
+    if (useSQLite) {
+      where += ' AND s.city = ? COLLATE NOCASE';
+    } else {
+      where += ' AND s.city = ?';
+    }
+    params.push(city);
+  }
+
+  if (is_active !== null && is_active !== undefined && excludeField !== 'is_active') {
+    where += ' AND s.is_active = ?';
+    params.push(is_active ? 1 : 0);
+  }
+
+  return { where, params };
+};
+
 // Get all shops with pagination and filters
 exports.getAllShops = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', route_id, city, is_active } = req.query;
+    const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
+    const filters = parseShopFiltersFromQuery(req.query);
+    const { where, params } = buildShopListWhere(req.user, filters);
 
-    let query = 'SELECT s.*, sm.full_name as salesman_name FROM shops s LEFT JOIN salesmen sm ON s.salesman_id = sm.id WHERE 1=1';
-    const params = [];
-    
-    // Phase 3 & 4 Identity Security: If user is a salesman, restrict query to only their assigned shops
-    if (req.user && !hasManagementScope(req.user)) {
-      if (req.user.salesman_id) {
-        query += ' AND s.salesman_id = ?';
-        params.push(req.user.salesman_id);
-      } else {
-        // Fail-safe: if they are not an admin/manager and don't have a salesman ID, return nothing
-        query += ' AND 1=0'; 
-      }
-    }
+    let query = `SELECT s.*, sm.full_name as salesman_name FROM shops s LEFT JOIN salesmen sm ON s.salesman_id = sm.id${where}`;
 
-    if (search) {
-      if (useSQLite) {
-        query += ' AND (s.shop_code LIKE ? COLLATE NOCASE OR s.shop_name LIKE ? COLLATE NOCASE OR s.owner_name LIKE ? COLLATE NOCASE OR s.phone LIKE ?)';
-      } else {
-        query += ' AND (s.shop_code LIKE ? OR s.shop_name LIKE ? OR s.owner_name LIKE ? OR s.phone LIKE ?)';
-      }
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
-    }
-
-    if (route_id) {
-      query += ' AND s.route_id = ?';
-      params.push(route_id);
-    }
-
-    if (city) {
-      if (useSQLite) {
-        query += ' AND s.city LIKE ? COLLATE NOCASE';
-      } else {
-        query += ' AND s.city LIKE ?';
-      }
-      params.push(`%${city}%`);
-    }
-
-    if (is_active !== undefined) {
-      query += ' AND s.is_active = ?';
-      params.push(is_active === 'true' ? 1 : 0);
-    }
-
-    // Get total count
-    const countQuery = query.replace('SELECT s.*, sm.full_name as salesman_name', 'SELECT COUNT(*) as total');
+    const countQuery = query.replace(
+      'SELECT s.*, sm.full_name as salesman_name',
+      'SELECT COUNT(*) as total'
+    );
     const [countResult] = await db.query(countQuery, params);
     const total = countResult[0].total || countResult.length;
 
-    // Get paginated data
     query += ' ORDER BY s.shop_name ASC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
-
-    const [shops] = await db.query(query, params);
+    const listParams = [...params, parseInt(limit, 10), parseInt(offset, 10)];
+    const [shops] = await db.query(query, listParams);
 
     res.json({
       success: true,
       data: shops,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
         totalPages: Math.ceil(total / limit)
       }
     });
@@ -87,6 +116,114 @@ exports.getAllShops = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch shops',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get cascading filter options for shop listing
+// @route   GET /api/desktop/shops/filter-options
+exports.getFilterOptions = async (req, res) => {
+  try {
+    const filters = parseShopFiltersFromQuery(req.query);
+
+    const salesmanFilter = buildShopListWhere(req.user, filters, 'salesman_id');
+    const routeFilter = buildShopListWhere(req.user, filters, 'route_id');
+    const cityFilter = buildShopListWhere(req.user, filters, 'city');
+    const statusFilter = buildShopListWhere(req.user, filters, 'is_active');
+
+    const [
+      salesmanRowsResult,
+      routeRowsResult,
+      cityRowsResult,
+      statusRowsResult
+    ] = await Promise.all([
+      db.query(
+        `SELECT
+          CASE WHEN s.salesman_id IS NULL THEN 'unassigned' ELSE s.salesman_id END AS value,
+          COALESCE(sm.full_name, 'Unassigned') AS label,
+          COUNT(*) AS count
+         FROM shops s
+         LEFT JOIN salesmen sm ON s.salesman_id = sm.id
+         ${salesmanFilter.where}
+         GROUP BY s.salesman_id, sm.full_name
+         ORDER BY label ASC`,
+        salesmanFilter.params
+      ),
+      db.query(
+        `SELECT
+          r.id AS value,
+          r.route_name AS label,
+          COUNT(*) AS count
+         FROM shops s
+         INNER JOIN routes r ON s.route_id = r.id
+         ${routeFilter.where}
+         GROUP BY r.id, r.route_name
+         ORDER BY r.route_name ASC`,
+        routeFilter.params
+      ),
+      db.query(
+        `SELECT
+          s.city AS value,
+          COUNT(*) AS count
+         FROM shops s
+         ${cityFilter.where}
+         AND s.city IS NOT NULL
+         AND s.city != ''
+         GROUP BY s.city
+         ORDER BY s.city ASC`,
+        cityFilter.params
+      ),
+      db.query(
+        `SELECT s.is_active, COUNT(*) AS count
+         FROM shops s
+         ${statusFilter.where}
+         GROUP BY s.is_active
+         ORDER BY s.is_active DESC`,
+        statusFilter.params
+      )
+    ]);
+
+    const [salesmanRows] = salesmanRowsResult;
+    const [routeRows] = routeRowsResult;
+    const [cityRows] = cityRowsResult;
+    const [statusRows] = statusRowsResult;
+
+    const statuses = statusRows.map((row) => {
+      const normalized = Number(row.is_active) === 1;
+      return {
+        value: normalized ? 'true' : 'false',
+        label: normalized ? 'Active' : 'Inactive',
+        count: Number(row.count) || 0
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        salesmen: salesmanRows.map((row) => ({
+          value: row.value,
+          label: row.label,
+          count: Number(row.count) || 0
+        })),
+        routes: routeRows.map((row) => ({
+          value: row.value,
+          label: row.label,
+          count: Number(row.count) || 0
+        })),
+        cities: cityRows.map((row) => ({
+          value: row.value,
+          label: row.value,
+          count: Number(row.count) || 0
+        })),
+        statuses
+      }
+    });
+  } catch (error) {
+    console.error('Get shop filter options error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching shop filter options',
       error: error.message
     });
   }

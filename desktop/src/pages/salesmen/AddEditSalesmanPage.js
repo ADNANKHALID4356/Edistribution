@@ -35,6 +35,7 @@ const AddEditSalesmanPage = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [cityOptions, setCityOptions] = useState([]);
     
   useEffect(() => {
     if (isEditMode) {
@@ -44,6 +45,10 @@ const AddEditSalesmanPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    fetchCityOptions();
+  }, []);
 
   const generateSalesmanCode = () => {
     const code = 'SM' + String(Date.now()).slice(-6);
@@ -77,6 +82,15 @@ const AddEditSalesmanPage = () => {
       setTimeout(() => {}, 5000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCityOptions = async () => {
+    try {
+      const response = await salesmanService.getCityOptions();
+      setCityOptions(response.data || []);
+    } catch (error) {
+      console.error('Error fetching salesman city options:', error);
     }
   };
 
@@ -171,6 +185,7 @@ const AddEditSalesmanPage = () => {
 
       const submitData = {
         ...formData,
+        city: formData.city.trim(),
         monthly_target: parseFloat(formData.monthly_target),
         commission_percentage: parseFloat(formData.commission_percentage)
       };
@@ -305,24 +320,20 @@ const AddEditSalesmanPage = () => {
               <label>
                 City <span className="required">*</span>
               </label>
-              <select
+              <input
+                type="text"
+                list="salesman-city-options"
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
+                placeholder="Select or type city name"
                 className={errors.city ? 'error' : ''}
-              >
-                <option value="">Select City</option>
-                <option value="Karachi">Karachi</option>
-                <option value="Lahore">Lahore</option>
-                <option value="Islamabad">Islamabad</option>
-                <option value="Rawalpindi">Rawalpindi</option>
-                <option value="Faisalabad">Faisalabad</option>
-                <option value="Multan">Multan</option>
-                <option value="Peshawar">Peshawar</option>
-                <option value="Quetta">Quetta</option>
-                <option value="Sialkot">Sialkot</option>
-                <option value="Gujranwala">Gujranwala</option>
-              </select>
+              />
+              <datalist id="salesman-city-options">
+                {cityOptions.map((city) => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
               {errors.city && <span className="error-msg">{errors.city}</span>}
             </div>
           </div>

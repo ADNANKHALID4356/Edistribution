@@ -12,11 +12,13 @@ function SalesmanListingPage() {
   const currentRole = user?.role_name || user?.role;
   const isAccountant = currentRole === 'Accountant';
   const [salesmen, setSalesmen] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
       const [stats, setStats] = useState({ total: 0, active: 0, cities: 0 });
   
   // Filters and pagination
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,21 +71,34 @@ function SalesmanListingPage() {
   });
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  useEffect(() => {
     fetchSalesmen();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchTerm, cityFilter, statusFilter]);
+  }, [currentPage, debouncedSearchTerm, cityFilter, statusFilter]);
+
+  useEffect(() => {
+    fetchCityOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchSalesmen = async () => {
-    setLoading(true);
+    setTableLoading(true);
     
     try {
       const filters = {
         page: currentPage,
-        limit: 10,
-        search: searchTerm,
-        city: cityFilter,
-        status: statusFilter
+        limit: 10
       };
+      if (debouncedSearchTerm) filters.search = debouncedSearchTerm;
+      if (cityFilter) filters.city = cityFilter;
+      if (statusFilter !== '') filters.is_active = statusFilter;
 
       const response = await salesmanService.getAllSalesmen(filters);
       
@@ -93,23 +108,28 @@ function SalesmanListingPage() {
       
       setSalesmen(salesmenData);
       
-      // Extract unique cities for filter dropdown
-      const uniqueCities = [...new Set(salesmenData.map(s => s.city).filter(Boolean))];
-      setCities(uniqueCities);
-      
       setStats({
         total: paginationData.total,
         active: salesmenData.filter(s => s.is_active === 1).length,
         inactive: salesmenData.filter(s => s.is_active === 0).length
       });
-      setCurrentPage(paginationData.page || currentPage);
       setTotalPages(paginationData.totalPages || 1);
       
     } catch (err) {
       showToast('Failed to fetch salesmen: ' + (err.message || 'Unknown error'), 'error');
       console.error('Fetch error:', err);
     } finally {
-      setLoading(false);
+      setTableLoading(false);
+      setInitialLoading(false);
+    }
+  };
+
+  const fetchCityOptions = async () => {
+    try {
+      const response = await salesmanService.getCityOptions();
+      setCities(response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch salesman city options:', err);
     }
   };
 
@@ -470,7 +490,7 @@ function SalesmanListingPage() {
     setCurrentPage(1);
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="salesman-listing-page">
         <div className="loading-container">
@@ -516,7 +536,7 @@ function SalesmanListingPage() {
             <label>Search</label>
             <input 
               type="text" 
-              placeholder="Search by name, code, city..." 
+              placeholder="Search by name, city, route, code..." 
               value={searchTerm}
               onChange={handleSearchChange}
             />
@@ -559,6 +579,11 @@ function SalesmanListingPage() {
 
       {/* Table Section */}
       <div className="table-section">
+        {tableLoading && (
+          <div style={{ marginBottom: '12px', color: '#64748b', fontSize: '14px' }}>
+            Updating list...
+          </div>
+        )}
         {salesmen.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">👤</div>

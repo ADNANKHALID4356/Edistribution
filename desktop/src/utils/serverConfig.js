@@ -15,7 +15,7 @@ const CONFIG_VERSION_KEY = 'serverConfigVersion';
  * Increment this value to force-reset all clients to the new default config.
  * Useful when switching environments (e.g. local → production).
  */
-const CURRENT_CONFIG_VERSION = 1776635000002; // post-fix deployment
+const CURRENT_CONFIG_VERSION = 1776635000003; // local backend port 5000
 
 /** Timeout in milliseconds for server connection tests. */
 const CONNECTION_TIMEOUT_MS = 5000;
@@ -90,7 +90,7 @@ const getRuntimeDefaultConfig = () => {
   if (runningLocally || isFileProtocol) {
     return {
       host: 'localhost',
-      port: '5001',
+      port: '5000',
       protocol: 'http',
     };
   }

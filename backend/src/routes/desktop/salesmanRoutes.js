@@ -23,6 +23,9 @@ router.get('/summary', authorize(...SALESMAN_READ_ROLES), salesmanController.get
 // Get active salesmen (for dropdowns)
 router.get('/active', authorize(...SALESMAN_READ_ROLES), salesmanController.getActiveSalesmen);
 
+// Get city options for salesman filters/forms
+router.get('/city-options', authorize(...SALESMAN_READ_ROLES), salesmanController.getCityOptions);
+
 // Get single salesman by ID
 router.get('/:id', authorize(...SALESMAN_READ_ROLES), salesmanController.getSalesmanById);
 

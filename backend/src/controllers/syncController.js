@@ -30,14 +30,19 @@ exports.syncOrders = async (req, res) => {
   
   try {
     const { salesman_id, device_info, orders } = req.body;
+    const useSQLite = process.env.USE_SQLITE === 'true' && process.env.NODE_ENV === 'development';
+    // SQLite dev schema keeps orders.salesman_id linked to users.id in this project.
+    // Use authenticated user id to prevent FK failures during mobile sync.
+    const effectiveSalesmanId = useSQLite ? req.user.id : salesman_id;
     
     console.log('\n🔄 ========== SYNC ORDERS REQUEST ==========');
-    console.log('👤 Salesman ID:', salesman_id);
+    console.log('👤 Salesman ID (payload):', salesman_id);
+    console.log('👤 Salesman ID (effective):', effectiveSalesmanId);
     console.log('📱 Device Info:', device_info);
     console.log('📦 Orders to sync:', orders?.length || 0);
     
     // Validation
-    if (!salesman_id || !orders || !Array.isArray(orders)) {
+    if (!effectiveSalesmanId || !orders || !Array.isArray(orders)) {
       console.log('❌ Validation failed: Missing salesman_id or orders');
       return res.status(400).json({
         success: false,
@@ -89,21 +94,19 @@ exports.syncOrders = async (req, res) => {
         // Check if order already exists (by mobile_order_id)
         console.log('   🔍 Checking for existing order...');
         
-        // SQLite doesn't have mobile_order_id column, so check by order details instead
-        const useSQLite = process.env.USE_SQLITE === 'true';
         let existing;
         
         if (useSQLite) {
           // For SQLite: Check by shop_id, order_date, and total_amount (no mobile_order_id column)
           [existing] = await connection.query(
             'SELECT id, order_number, updated_at FROM orders WHERE salesman_id = ? AND shop_id = ? AND order_date = ? AND net_amount = ?',
-            [salesman_id, shop_id, order_date, net_amount]
+            [effectiveSalesmanId, shop_id, order_date, net_amount]
           );
         } else {
           // For MySQL: Use mobile_order_id
           [existing] = await connection.query(
             'SELECT id, updated_at, is_synced FROM orders WHERE mobile_order_id = ? AND salesman_id = ?',
-            [mobile_order_id, salesman_id]
+            [mobile_order_id, effectiveSalesmanId]
           );
         }
         
@@ -134,7 +137,6 @@ exports.syncOrders = async (req, res) => {
           }
           
           // Update existing order
-          const useSQLite = process.env.USE_SQLITE === 'true' && process.env.NODE_ENV === 'development';
           const orderDetailsTable = useSQLite ? 'order_items' : 'order_details';
           
           if (useSQLite) {
@@ -205,7 +207,7 @@ exports.syncOrders = async (req, res) => {
               `INSERT INTO orders 
                (order_number, salesman_id, shop_id, order_date, total_amount, discount_amount, net_amount, status, notes) 
                VALUES (?, ?, ?, ?, ?, ?, ?, 'placed', ?)`,
-              [orderNumber, salesman_id, shop_id, order_date, total_amount, discount, net_amount, notes]
+              [orderNumber, effectiveSalesmanId, shop_id, order_date, total_amount, discount, net_amount, notes]
             );
           } else {
             // MySQL: has route_id, mobile_order_id, is_synced, sync_status, synced_at
@@ -214,7 +216,7 @@ exports.syncOrders = async (req, res) => {
                (order_number, salesman_id, shop_id, route_id, order_date, total_amount, discount, net_amount, 
                 status, notes, mobile_order_id, is_synced, sync_status, synced_at) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'placed', ?, ?, TRUE, 'synced', NOW())`,
-              [orderNumber, salesman_id, shop_id, route_id, order_date, total_amount, discount, net_amount, notes, mobile_order_id]
+              [orderNumber, effectiveSalesmanId, shop_id, route_id, order_date, total_amount, discount, net_amount, notes, mobile_order_id]
             );
           }
           
@@ -401,11 +403,11 @@ exports.syncOrders = async (req, res) => {
         `INSERT INTO sync_logs 
          (salesman_id, entity_type, action, status, records_count, sync_duration, device_info, timestamp) 
          VALUES (?, 'order', 'upload', ?, ?, ?, ?, NOW())`,
-        [salesman_id, results.failed === 0 ? 'success' : 'partial', results.success, duration, JSON.stringify(device_info)]
+        [effectiveSalesmanId, results.failed === 0 ? 'success' : 'partial', results.success, duration, JSON.stringify(device_info)]
       );
       
       // Update sync statistics
-      await updateSyncStatistics(connection, salesman_id, 'orders_uploaded', results.success);
+      await updateSyncStatistics(connection, effectiveSalesmanId, 'orders_uploaded', results.success);
     } catch (logError) {
       console.warn('Failed to log sync event:', logError.message);
       // Don't fail the response if logging fails

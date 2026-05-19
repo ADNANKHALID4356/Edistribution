@@ -41,6 +41,38 @@ exports.getDashboardStats = async (req, res) => {
       srParams.push(salesman_id);
     }
 
+    // Cash-basis collections filters (shop_ledger as source of truth)
+    let cashWhere = "sl.transaction_type = 'payment'";
+    const cashParams = [];
+    if (start_date) {
+      cashWhere += ' AND DATE(sl.transaction_date) >= ?';
+      cashParams.push(start_date);
+    }
+    if (end_date) {
+      cashWhere += ' AND DATE(sl.transaction_date) <= ?';
+      cashParams.push(end_date);
+    }
+    if (salesman_id) {
+      cashWhere += ' AND sh.salesman_id = ?';
+      cashParams.push(salesman_id);
+    }
+
+    // Manual daily collections are also part of cash-basis recognized revenue.
+    let dailyCollectionWhere = '1=1';
+    const dailyCollectionParams = [];
+    if (start_date) {
+      dailyCollectionWhere += ' AND DATE(dc.collection_date) >= ?';
+      dailyCollectionParams.push(start_date);
+    }
+    if (end_date) {
+      dailyCollectionWhere += ' AND DATE(dc.collection_date) <= ?';
+      dailyCollectionParams.push(end_date);
+    }
+    if (salesman_id) {
+      dailyCollectionWhere += ' AND dc.salesman_id = ?';
+      dailyCollectionParams.push(salesman_id);
+    }
+
     const useSQLite = process.env.USE_SQLITE === 'true';
     console.log('🔵 USE_SQLITE:', useSQLite);
     let dashboardStats;
@@ -72,8 +104,9 @@ exports.getDashboardStats = async (req, res) => {
           SUM(CASE WHEN status IN ('placed', 'pending', 'processing') THEN 1 ELSE 0 END) as pending_orders,
           SUM(CASE WHEN status IN ('finalized', 'delivered') THEN 1 ELSE 0 END) as completed_orders,
           SUM(net_amount) as total_order_value
-        FROM orders
-      `);
+        FROM orders o
+        WHERE ${oWhere}
+      `, oParams);
       const orderStats = orderRows[0] || {};
       console.log('📋 Order stats:', orderStats);
       
@@ -244,50 +277,138 @@ exports.getDashboardStats = async (req, res) => {
         total_reserved_stock: parseFloat(stats[0].total_reserved_stock || 0),
         fully_reserved_count: stats[0].fully_reserved_count
       };
+
+      // Overlay filtered order metrics so dashboard filters stay consistent.
+      const [filteredOrderRows] = await db.query(
+        `SELECT
+          COUNT(*) as total_orders,
+          SUM(CASE WHEN o.status IN ('placed', 'pending', 'processing') THEN 1 ELSE 0 END) as pending_orders,
+          SUM(CASE WHEN o.status IN ('finalized', 'delivered') THEN 1 ELSE 0 END) as completed_orders,
+          COALESCE(SUM(o.net_amount), 0) as total_order_value
+         FROM orders o
+         WHERE ${oWhere}`,
+        oParams
+      );
+      const filteredOrderStats = filteredOrderRows[0] || {};
+      dashboardStats.total_orders = Number(filteredOrderStats.total_orders || 0);
+      dashboardStats.pending_orders = Number(filteredOrderStats.pending_orders || 0);
+      dashboardStats.completed_orders = Number(filteredOrderStats.completed_orders || 0);
+      dashboardStats.total_order_value = parseFloat(filteredOrderStats.total_order_value || 0);
     }
 
     if (!isFinancialDashboardRestricted) {
-      // Calculate P&L metrics with dynamic filters for Phase 3
+      // Cash-basis P&L:
+      // Revenue is recognized on collections (shop_ledger payment entries),
+      // while COGS remains tied to fulfilled sales (delivered/finalized orders).
       const ORDER_DETAILS_TABLE = useSQLite ? 'order_items' : 'order_details';
       
-      // Use order_details instead of delivery_items directly to prevent 0 or double joins if deliveries table isn't aligned. 
-      // And Stock Returns status is 'processed' not 'approved'.
-      const pnlQuery = `
+      const cogsQuery = `
         SELECT 
-          COALESCE(SUM(od.net_price), 0) AS total_gross_revenue,
+          COALESCE(SUM(od.net_price), 0) AS total_gross_sales_value,
           COALESCE(SUM(od.quantity * od.unit_purchase_cost), 0) AS total_cogs
         FROM orders o
         JOIN ${ORDER_DETAILS_TABLE} od ON o.id = od.order_id
         WHERE o.status IN ('delivered', 'finalized') AND ${oWhere}
       `;
 
-      const srQuery = `
+      const returnsQuery = `
         SELECT 
           COALESCE(SUM(sr.total_return_amount), 0) AS total_return_revenue
         FROM stock_returns sr
         WHERE sr.status = 'completed' AND ${srWhere}
       `;
 
-      try {
-        const [pnlRows] = await db.query(pnlQuery, oParams);
-        const [srRows] = await db.query(srQuery, srParams);
+      const cashQuery = `
+        SELECT
+          COALESCE(SUM(sl.debit_amount), 0) AS total_collections_received,
+          COALESCE(SUM(sl.credit_amount), 0) AS total_collections_paid_out
+        FROM shop_ledger sl
+        LEFT JOIN shops sh ON sh.id = sl.shop_id
+        WHERE ${cashWhere}
+      `;
 
-        const total_gross_revenue = parseFloat(pnlRows[0]?.total_gross_revenue || 0);
-        const total_cogs = parseFloat(pnlRows[0]?.total_cogs || 0);
-        const total_return_revenue = parseFloat(srRows[0]?.total_return_revenue || 0);
-        const net_revenue = total_gross_revenue - total_return_revenue;
+      const dailyCollectionRawQuery = `
+        SELECT COALESCE(SUM(dc.amount), 0) AS total_manual_daily_collections_raw
+        FROM daily_collections dc
+        WHERE ${dailyCollectionWhere}
+      `;
+
+      const dailyCollectionDedupedQuery = `
+        SELECT COALESCE(SUM(dc.amount), 0) AS total_manual_daily_collections_deduped
+        FROM daily_collections dc
+        WHERE ${dailyCollectionWhere}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM shop_ledger sl2
+            LEFT JOIN shops sh2 ON sh2.id = sl2.shop_id
+            WHERE sl2.transaction_type = 'payment'
+              AND COALESCE(sl2.debit_amount, 0) > 0
+              AND COALESCE(sl2.shop_id, 0) = COALESCE(dc.shop_id, 0)
+              AND DATE(sl2.transaction_date) = DATE(dc.collection_date)
+              AND ABS(COALESCE(sl2.debit_amount, 0) - COALESCE(dc.amount, 0)) < 0.01
+              AND (dc.salesman_id IS NULL OR sh2.salesman_id = dc.salesman_id)
+              -- Strict anti-double-counting:
+              -- Deduplicate ONLY when manual collection has a non-empty reference number
+              -- that exactly matches a shop-ledger payment reference.
+              -- This avoids false exclusions for same-day same-amount legitimate collections.
+              AND dc.reference_number IS NOT NULL
+              AND TRIM(dc.reference_number) != ''
+              AND sl2.reference_number = dc.reference_number
+          )
+      `;
+
+      try {
+        const [cogsRows] = await db.query(cogsQuery, oParams);
+        const [returnsRows] = await db.query(returnsQuery, srParams);
+        const [cashRows] = await db.query(cashQuery, cashParams);
+        const [dailyCollectionRawRows] = await db.query(dailyCollectionRawQuery, dailyCollectionParams);
+        const [dailyCollectionDedupedRows] = await db.query(dailyCollectionDedupedQuery, dailyCollectionParams);
+
+        const total_gross_sales_value = parseFloat(cogsRows[0]?.total_gross_sales_value || 0);
+        const total_cogs = parseFloat(cogsRows[0]?.total_cogs || 0);
+        const total_return_revenue = parseFloat(returnsRows[0]?.total_return_revenue || 0);
+        const total_shop_ledger_collections_received = parseFloat(cashRows[0]?.total_collections_received || 0);
+        const total_manual_daily_collections_raw = parseFloat(dailyCollectionRawRows[0]?.total_manual_daily_collections_raw || 0);
+        const total_manual_daily_collections_deduped = parseFloat(dailyCollectionDedupedRows[0]?.total_manual_daily_collections_deduped || 0);
+        const duplicate_manual_daily_collections = total_manual_daily_collections_raw - total_manual_daily_collections_deduped;
+        const total_collections_received_raw = total_shop_ledger_collections_received + total_manual_daily_collections_raw;
+        const total_collections_received = total_shop_ledger_collections_received + total_manual_daily_collections_deduped;
+        const total_collections_paid_out = parseFloat(cashRows[0]?.total_collections_paid_out || 0);
+        const total_gross_revenue = total_collections_received;
+        const net_revenue = total_collections_received - total_collections_paid_out;
         const gross_profit = net_revenue - total_cogs;
 
         // Append P&L metrics to dashboardStats
         dashboardStats.total_gross_revenue = total_gross_revenue;
         dashboardStats.total_cogs = total_cogs;
         dashboardStats.net_cogs = total_cogs; // mapping for frontend alias
-        dashboardStats.total_return_revenue = total_return_revenue;
+        dashboardStats.total_return_revenue = total_collections_paid_out;
         dashboardStats.net_revenue = net_revenue;
         dashboardStats.gross_profit = gross_profit;
+        dashboardStats.total_collections_received_raw = total_collections_received_raw;
+        dashboardStats.total_collections_received = total_collections_received;
+        dashboardStats.total_collections_paid_out = total_collections_paid_out;
+        dashboardStats.total_shop_ledger_collections_received = total_shop_ledger_collections_received;
+        dashboardStats.total_manual_daily_collections = total_manual_daily_collections_deduped;
+        dashboardStats.total_manual_daily_collections_raw = total_manual_daily_collections_raw;
+        dashboardStats.total_manual_daily_collections_deduped = total_manual_daily_collections_deduped;
+        dashboardStats.duplicate_manual_daily_collections = duplicate_manual_daily_collections;
+        dashboardStats.total_gross_sales_value = total_gross_sales_value;
+        dashboardStats.total_stock_returns_value = total_return_revenue;
         
-        console.log('💰 Phase 3 P&L Metrics appended correctly:', { 
-          total_gross_revenue, total_cogs, total_return_revenue, net_revenue, gross_profit 
+        console.log('💰 Cash-basis P&L Metrics appended correctly:', {
+          total_collections_received_raw,
+          total_collections_received,
+          total_shop_ledger_collections_received,
+          total_manual_daily_collections_raw,
+          total_manual_daily_collections_deduped,
+          duplicate_manual_daily_collections,
+          total_collections_paid_out,
+          total_gross_sales_value,
+          total_cogs,
+          total_return_revenue,
+          net_revenue,
+          gross_profit
         });
       } catch (metricError) {
         console.error('Error calculating P&L metrics:', metricError);
@@ -297,6 +418,16 @@ exports.getDashboardStats = async (req, res) => {
         dashboardStats.total_return_revenue = 0;
         dashboardStats.net_revenue = 0;
         dashboardStats.gross_profit = 0;
+        dashboardStats.total_collections_received_raw = 0;
+        dashboardStats.total_collections_received = 0;
+        dashboardStats.total_collections_paid_out = 0;
+        dashboardStats.total_shop_ledger_collections_received = 0;
+        dashboardStats.total_manual_daily_collections = 0;
+        dashboardStats.total_manual_daily_collections_raw = 0;
+        dashboardStats.total_manual_daily_collections_deduped = 0;
+        dashboardStats.duplicate_manual_daily_collections = 0;
+        dashboardStats.total_gross_sales_value = 0;
+        dashboardStats.total_stock_returns_value = 0;
       }
     } else {
       dashboardStats.total_gross_revenue = 0;
@@ -305,6 +436,16 @@ exports.getDashboardStats = async (req, res) => {
       dashboardStats.total_return_revenue = 0;
       dashboardStats.net_revenue = 0;
       dashboardStats.gross_profit = 0;
+      dashboardStats.total_collections_received_raw = 0;
+      dashboardStats.total_collections_received = 0;
+      dashboardStats.total_collections_paid_out = 0;
+      dashboardStats.total_shop_ledger_collections_received = 0;
+      dashboardStats.total_manual_daily_collections = 0;
+      dashboardStats.total_manual_daily_collections_raw = 0;
+      dashboardStats.total_manual_daily_collections_deduped = 0;
+      dashboardStats.duplicate_manual_daily_collections = 0;
+      dashboardStats.total_gross_sales_value = 0;
+      dashboardStats.total_stock_returns_value = 0;
     }
 
     // Set cache-control headers to prevent caching of stats
