@@ -353,8 +353,8 @@ class Delivery {
         challanNumber,
         deliveryData.invoice_id || null,
         deliveryData.order_id || null,
-        deliveryData.warehouse_id,
-        deliveryData.delivery_date,
+        deliveryData.warehouse_id || null,
+        deliveryData.delivery_date || null,
         deliveryData.expected_delivery_time || null,
         deliveryData.driver_name || null,
         deliveryData.driver_phone || null,
@@ -452,14 +452,16 @@ class Delivery {
             unitPurchaseCost,
         ]);
 
-        // Reserve stock in warehouse
-        await connection.query(`
-          UPDATE warehouse_stock 
-          SET reserved_quantity = reserved_quantity + ?
-          WHERE warehouse_id = ? AND product_id = ?
-        `, [quantityToUse, deliveryData.warehouse_id, item.product_id]);
-        
-        console.log('      ✅ Item inserted and stock reserved');
+        if (deliveryData.warehouse_id) {
+          await connection.query(`
+            UPDATE warehouse_stock 
+            SET reserved_quantity = reserved_quantity + ?
+            WHERE warehouse_id = ? AND product_id = ?
+          `, [quantityToUse, deliveryData.warehouse_id, item.product_id]);
+          console.log('      ✅ Item inserted and stock reserved');
+        } else {
+          console.log('      ✅ Item inserted (no warehouse — stock not reserved)');
+        }
       }
 
       console.log('✅ All delivery items inserted successfully');
@@ -956,8 +958,8 @@ class Delivery {
         challanNumber,
         orderId,
         null, // invoice_id is NULL for order-based deliveries
-        deliveryData.warehouse_id,
-        deliveryData.delivery_date || new Date(),
+        deliveryData.warehouse_id || null,
+        deliveryData.delivery_date || null,
         deliveryData.expected_delivery_time || null,
         deliveryData.driver_name || null,
         deliveryData.driver_phone || null,

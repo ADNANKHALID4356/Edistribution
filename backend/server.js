@@ -168,6 +168,10 @@ app.get('/api/health/detailed', (req, res) => {
   });
 });
 
+// Desktop UI (production build) — same origin as API on port 5000
+const { serveDesktopUi } = require('./src/middleware/serveDesktopUi');
+serveDesktopUi(app);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

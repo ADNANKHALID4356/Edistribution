@@ -23,17 +23,6 @@ LogBox.ignoreLogs([
   'Error:',
 ]);
 
-// Override global promise rejection handler to prevent error display
-const originalHandler = global.Promise.prototype.catch;
-global.Promise.prototype.catch = function(onRejected) {
-  return originalHandler.call(this, function(error) {
-    // Silently handle promise rejections
-    if (onRejected) {
-      return onRejected(error);
-    }
-  });
-};
-
 // Suppress console methods that cause red boxes
 if (__DEV__) {
   const noop = () => {};

@@ -7,12 +7,17 @@
   "main": "electron-client.js",
   "homepage": "./",
   "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0 <=22.x"
+  },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "cross-env DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=false BROWSER=none node node_modules/react-scripts/bin/react-scripts.js start",
+    "build": "cross-env GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true CI=true node node_modules/react-scripts/bin/react-scripts.js build",
+    "build:prod": "node scripts/build-production.js",
+    "app": "node_modules\\.bin\\electron.cmd .",
+    "test": "node node_modules/react-scripts/bin/react-scripts.js test",
     "eject": "react-scripts eject",
-    "electron": ".\\node_modules\\.bin\\electron.cmd .",
+    "electron": "npm run app",
     "electron:dev": "concurrently \"cross-env BROWSER=none npm start\" \"wait-on http://localhost:3000 && cross-env USE_DEV_SERVER=true .\\node_modules\\.bin\\electron.cmd .\"",
     "electron:build": "npm run build && electron-builder"
   },
@@ -35,6 +40,7 @@
     ]
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@headlessui/react": "^2.2.9",
@@ -61,7 +67,9 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.9.5",
-    "react-scripts": "^5.0.1",
+    "react-scripts": "5.0.1",
+    "webpack": "5.64.4",
+    "webpack-dev-server": "4.6.0",
     "tailwindcss": "^3.3.0",
     "wait-on": "^9.0.3",
     "web-vitals": "^2.1.4"

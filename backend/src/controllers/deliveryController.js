@@ -174,19 +174,10 @@ exports.createDeliveryFromOrder = async (req, res) => {
       });
     }
 
-    if (!delivery || !delivery.warehouse_id) {
-      console.log('❌ Validation failed: No warehouse_id');
+    if (!delivery) {
       return res.status(400).json({
         success: false,
-        message: 'Warehouse is required'
-      });
-    }
-
-    if (!delivery.delivery_date) {
-      console.log('❌ Validation failed: No delivery_date');
-      return res.status(400).json({
-        success: false,
-        message: 'Delivery date is required'
+        message: 'Delivery data is required'
       });
     }
 
@@ -224,20 +215,10 @@ exports.createDelivery = async (req, res) => {
     console.log('📦 Items Data:', JSON.stringify(items, null, 2));
     console.log('👤 User ID:', userId);
 
-    // Validation
-    if (!delivery.warehouse_id) {
-      console.log('❌ Validation failed: No warehouse_id');
+    if (!delivery) {
       return res.status(400).json({
         success: false,
-        message: 'Warehouse is required'
-      });
-    }
-
-    if (!delivery.delivery_date) {
-      console.log('❌ Validation failed: No delivery_date');
-      return res.status(400).json({
-        success: false,
-        message: 'Delivery date is required'
+        message: 'Delivery data is required'
       });
     }
 

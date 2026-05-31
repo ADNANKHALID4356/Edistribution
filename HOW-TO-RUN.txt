@@ -1,0 +1,44 @@
+HOW TO RUN THE APP
+==================
+
+STEP 0 - Check Node (must be v22, NOT v24)
+------------------------------------------
+    node -v
+Must show v22.x (not v24).
+
+
+ELECTRON (desktop window) - RECOMMENDED
+---------------------------------------
+Double-click:  RUN-TODAY.bat   or   RUN-APP.bat
+
+- Starts backend on port 5000
+- Builds desktop\build once (no port 3000 needed)
+- Opens Electron from the production build
+
+Do NOT run "npm run electron" alone unless build\index.html exists
+or you already have "npm start" running on port 3000.
+
+If build fails (out of memory): close Chrome/Cursor/extra Node apps,
+reboot, run RUN-TODAY.bat again.
+
+
+BROWSER DEV MODE (port 3000)
+----------------------------
+Terminal 1:
+  cd /d C:\Users\ENG_DANI\Documents\E_Dist\Edistribution\backend
+  npm.cmd run dev
+
+Terminal 2 (wait for "Compiled successfully"):
+  cd /d C:\Users\ENG_DANI\Documents\E_Dist\Edistribution\desktop
+  npm.cmd start
+
+Open: http://localhost:3000
+Login: admin / admin123
+
+Or use START-DEV-LIGHT.bat, then: npm.cmd run electron:dev
+
+
+DELIVERY CHALLAN - optional warehouse/date
+------------------------------------------
+On Generate Delivery Challan, warehouse and delivery date are optional.
+Only the order is required.

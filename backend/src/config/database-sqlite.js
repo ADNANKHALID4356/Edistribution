@@ -76,6 +76,13 @@ function ensureCanonicalRoles() {
   for (const role of roleDefinitions) {
     upsertRole.run(...role);
   }
+}
+
+function migrateLegacyUserRoles() {
+  const usersTable = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+    .get();
+  if (!usersTable) return;
 
   db.exec(`
     UPDATE users
@@ -762,6 +769,8 @@ function initializeDatabase() {
       FOREIGN KEY (role_id) REFERENCES roles(id)
     )
   `);
+
+  migrateLegacyUserRoles();
 
   // Warehouses table (Professional warehouse management)
   db.exec(`

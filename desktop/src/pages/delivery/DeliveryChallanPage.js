@@ -33,7 +33,7 @@ const DeliveryChallanPage = () => {
   // Form data
   const [formData, setFormData] = useState({
     warehouse_id: '',
-    delivery_date: new Date().toISOString().split('T')[0],
+    delivery_date: '',
     status: 'pending'
   });
   
@@ -74,20 +74,6 @@ const DeliveryChallanPage = () => {
     try {
       const response = await warehouseService.getAllWarehouses({ status: 'active' });
       setWarehouses(response.data || []);
-      
-      // Auto-select warehouse: priority order - default, first warehouse if only one exists
-      const defaultWarehouse = response.data?.find(w => w.is_default);
-      const firstWarehouse = response.data?.[0];
-      
-      if (!formData.warehouse_id) {
-        if (defaultWarehouse) {
-          console.log('✅ Auto-selecting default warehouse:', defaultWarehouse.name);
-          setFormData(prev => ({ ...prev, warehouse_id: defaultWarehouse.id }));
-        } else if (response.data?.length === 1) {
-          console.log('✅ Auto-selecting only warehouse:', firstWarehouse.name);
-          setFormData(prev => ({ ...prev, warehouse_id: firstWarehouse.id }));
-        }
-      }
     } catch (error) {
       console.error('Error fetching warehouses:', error);
       setMessage({ 
@@ -201,11 +187,6 @@ const DeliveryChallanPage = () => {
         return;
       }
       
-      if (!formData.warehouse_id) {
-        setMessage({ type: 'error', text: 'Please select a warehouse' });
-        return;
-      }
-      
       console.log('🚀 Creating delivery challan from order:', selectedOrderId);
       console.log('📦 Delivery data:', formData);
       
@@ -213,8 +194,8 @@ const DeliveryChallanPage = () => {
       const response = await deliveryService.createDeliveryFromOrder(
         selectedOrderId,
         {
-          warehouse_id: formData.warehouse_id,
-          delivery_date: formData.delivery_date,
+          warehouse_id: formData.warehouse_id || null,
+          delivery_date: formData.delivery_date || null,
           status: formData.status
         }
       );
@@ -401,13 +382,12 @@ const DeliveryChallanPage = () => {
               {/* Warehouse Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Warehouse <span className="text-red-500">*</span>
+                  Warehouse <span className="text-gray-400 font-normal">(optional)</span>
                 </label>
                 <select
                   name="warehouse_id"
                   value={formData.warehouse_id}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">-- Select Warehouse --</option>
@@ -422,14 +402,13 @@ const DeliveryChallanPage = () => {
               {/* Delivery Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Delivery Date <span className="text-red-500">*</span>
+                  Delivery Date <span className="text-gray-400 font-normal">(optional)</span>
                 </label>
                 <input
                   type="date"
                   name="delivery_date"
                   value={formData.delivery_date}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>

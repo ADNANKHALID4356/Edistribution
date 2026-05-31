@@ -17,13 +17,17 @@ export const AuthProvider = ({ children }) => {
     try {
       // Initialize SQLite database first (critical for offline mode)
       console.log('🔄 Initializing database...');
-      await dbHelper.init();
+      const initTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database init timeout')), 20000)
+      );
+      await Promise.race([dbHelper.init(), initTimeout]);
       console.log('✅ Database initialized');
 
       // Then check authentication status
       await checkAuthStatus();
     } catch (error) {
       console.error('❌ App initialization error:', error);
+    } finally {
       setLoading(false);
     }
   };
@@ -39,8 +43,6 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Auth check error:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

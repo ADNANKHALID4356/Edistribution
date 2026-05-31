@@ -1,22 +1,42 @@
 @echo off
-title Distribution System - Expo Go (LAN)
+title Distribution System - Expo Go (low memory)
 cd /d "%~dp0"
 
-REM Use your PC's WiFi IPv4 (run: ipconfig ^| findstr IPv4)
+echo.
+echo === Free RAM first ===
+echo Closing extra Node processes (backend/desktop will need restart after)...
+taskkill /F /IM node.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+REM WiFi IPv4 - update if ipconfig shows a different address
 set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.148.95
+set NODE_OPTIONS=--max-old-space-size=8192
+set METRO_MAX_WORKERS=1
+
+if not exist "node_modules\expo" (
+  echo Installing dependencies...
+  call npm.cmd install --no-audit --no-fund
+  if errorlevel 1 exit /b 1
+)
 
 echo.
 echo ============================================
-echo  Expo Go - LAN mode
-echo  Packager host: %REACT_NATIVE_PACKAGER_HOSTNAME%
-echo  Backend API:   http://%REACT_NATIVE_PACKAGER_HOSTNAME%:5000/api
+echo  Expo Go - LAN (1 worker, avoids OOM)
+set EXPO_PORT=8082
+echo  Packager: %REACT_NATIVE_PACKAGER_HOSTNAME%:8082
+echo  Backend:  http://%REACT_NATIVE_PACKAGER_HOSTNAME%:5000/api
 echo ============================================
 echo.
-echo 1. Phone and PC must be on the same WiFi
-echo 2. Open Expo Go app - Scan QR code
-echo 3. If scan fails, run: npm run start:tunnel
+echo BEFORE scanning QR:
+echo   1. Start backend in another window:
+echo      cd ..\backend ^& npm.cmd run dev
+echo   2. When Expo asks: Down arrow + Enter = Proceed anonymously
+echo   3. Do NOT use expo start --clear on this PC
 echo.
 
-call npx expo start --lan --clear
+call node scripts\patch-jest-worker.js
+call npm.cmd run start
 
+echo.
+echo If you used "npx expo start" and got OOM, always use this bat file or "npm.cmd run start"
 pause

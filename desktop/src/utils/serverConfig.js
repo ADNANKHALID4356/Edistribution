@@ -82,6 +82,21 @@ const isLocalHostConfig = (config) => {
  * @returns {{ host: string, port: string, protocol: 'http' | 'https' }}
  */
 const getRuntimeDefaultConfig = () => {
+  // Explicit override for local frontend → remote VPS (npm start with .env)
+  const remoteApi = process.env.REACT_APP_REMOTE_API_URL;
+  if (remoteApi) {
+    try {
+      const parsed = new URL(remoteApi);
+      return {
+        host: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? '443' : '80'),
+        protocol: parsed.protocol === 'https:' ? 'https' : 'http',
+      };
+    } catch (error) {
+      console.warn('[serverConfig] Invalid REACT_APP_REMOTE_API_URL:', remoteApi);
+    }
+  }
+
   const runtimeHost = String(window?.location?.hostname ?? '').toLowerCase();
   const runtimeProtocol = String(window?.location?.protocol ?? '').toLowerCase();
   const runningLocally = runtimeHost === 'localhost' || runtimeHost === '127.0.0.1';
@@ -149,8 +164,12 @@ export const getServerConfig = () => {
     if (stored) {
       const parsed = normalizeConfig(JSON.parse(stored));
       if (parsed) {
-        // If app runs locally, force local backend to prevent accidental remote calls.
-        if (isLocalHostConfig(runtimeDefault) && !isLocalHostConfig(parsed)) {
+        // If app runs locally, force local backend unless remote API env is set.
+        if (
+          !process.env.REACT_APP_REMOTE_API_URL &&
+          isLocalHostConfig(runtimeDefault) &&
+          !isLocalHostConfig(parsed)
+        ) {
           return runtimeDefault;
         }
         return parsed;
