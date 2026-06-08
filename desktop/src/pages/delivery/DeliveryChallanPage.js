@@ -12,6 +12,11 @@ import {
 import deliveryService from '../../services/deliveryService';
 import warehouseService from '../../services/warehouseService';
 import orderService from '../../services/orderService';
+import {
+  getLineDisplayValues,
+  sumLineNetPrices,
+  formatOrderDiscountPct,
+} from '../../utils/lineItemCalculations';
 
 const DeliveryChallanPage = () => {
   const navigate = useNavigate();
@@ -90,6 +95,9 @@ const DeliveryChallanPage = () => {
       
       console.log('📦 Loading order details for ID:', orderId);
       const response = await orderService.getOrderById(orderId);
+      if (!response?.success || !response?.data) {
+        throw new Error(response?.message || 'Order not found');
+      }
       const order = response.data;
       
       console.log('✅ Order loaded:', {
@@ -104,20 +112,24 @@ const DeliveryChallanPage = () => {
       
       setOrderDetails(order);
       
-      // Map order items to delivery format
-      const deliveryItems = (order.items || []).map(item => ({
-        product_id: item.product_id,
-        product_name: item.product_name,
-        product_code: item.product_code,
-        quantity: parseFloat(item.quantity) || 0,
-        unit: item.unit || 'pcs',
-        unit_price: parseFloat(item.unit_price) || 0,
-        discount_percentage: parseFloat(item.discount_percentage) || 0,
-        discount_amount: parseFloat(item.discount_amount) || 0,
-        tax_percentage: parseFloat(item.tax_percentage) || 0,
-        tax_amount: parseFloat(item.tax_amount) || 0,
-        total_price: parseFloat(item.total_price) || 0
-      }));
+      // Map order items — keep gross in total_price, net in net_price for display
+      const deliveryItems = (order.items || []).map((item) => {
+        const line = getLineDisplayValues(item);
+        return {
+          product_id: item.product_id,
+          product_name: item.product_name,
+          product_code: item.product_code,
+          quantity: parseFloat(item.quantity) || 0,
+          unit: item.unit || 'pcs',
+          unit_price: parseFloat(item.unit_price) || 0,
+          discount_percentage: line.discountPercentage,
+          discount_amount: line.discountAmount,
+          tax_percentage: parseFloat(item.tax_percentage) || 0,
+          tax_amount: parseFloat(item.tax_amount) || 0,
+          total_price: line.grossTotal,
+          net_price: line.netPrice,
+        };
+      });
       
       setItems(deliveryItems);
       
@@ -153,26 +165,23 @@ const DeliveryChallanPage = () => {
   };
 
   const calculateTotals = () => {
-    // Items total_price is already NET after individual item discounts
-    // Only need to subtract order-level discount
-    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.total_price) || 0), 0);
-    const orderDiscount = parseFloat(orderDetails?.discount) || 0;
+    const linesNet = sumLineNetPrices(items);
+    const totalAmount = parseFloat(orderDetails?.total_amount) || linesNet;
+    const orderDiscount =
+      parseFloat(orderDetails?.discount ?? orderDetails?.discount_amount) || 0;
     const totalTax = items.reduce((sum, item) => sum + (parseFloat(item.tax_amount) || 0), 0);
-    const grandTotal = subtotal - orderDiscount + totalTax;
-    
-    console.log('💰 Delivery Challan Totals:', {
-      subtotal,
+    const netAmount =
+      parseFloat(orderDetails?.net_amount) || totalAmount - orderDiscount + totalTax;
+
+    return {
+      totalAmount,
       orderDiscount,
       totalTax,
-      grandTotal,
-      note: 'subtotal is already net after item discounts'
-    });
-    
-    return {
-      subtotal: parseFloat(subtotal),
-      totalDiscount: parseFloat(orderDiscount),
-      totalTax: parseFloat(totalTax),
-      grandTotal: parseFloat(grandTotal)
+      netAmount,
+      discountPct:
+        totalAmount > 0 && orderDiscount > 0
+          ? (orderDiscount / totalAmount) * 100
+          : 0,
     };
   };
 
@@ -440,7 +449,7 @@ const DeliveryChallanPage = () => {
                         Discount %
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
+                        Net Price
                       </th>
                     </tr>
                   </thead>
@@ -459,10 +468,8 @@ const DeliveryChallanPage = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-red-600">
                           {(() => {
-                            const discAmt = item.discount_amount || 0;
-                            const grossTotal = item.quantity * item.unit_price;
-                            const discPct = item.discount_percentage || 
-                              (discAmt > 0 && grossTotal > 0 ? (discAmt / grossTotal) * 100 : 0);
+                            const { discountAmount: discAmt, discountPercentage: discPct } =
+                              getLineDisplayValues(item);
                             return discPct > 0 ? (
                               <div>
                                 <div className="font-medium">{discPct.toFixed(1)}%</div>
@@ -472,7 +479,7 @@ const DeliveryChallanPage = () => {
                           })()}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                          Rs. {item.total_price.toFixed(2)}
+                          Rs. {getLineDisplayValues(item).netPrice.toFixed(2)}
                         </td>
                       </tr>
                     ))}
@@ -486,13 +493,13 @@ const DeliveryChallanPage = () => {
                   <div className="flex justify-end">
                     <div className="w-64 space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span className="font-medium">Rs. {(totals?.subtotal || 0).toFixed(2)}</span>
+                        <span className="text-gray-600">Total Amount:</span>
+                        <span className="font-medium">Rs. {(totals?.totalAmount || 0).toFixed(2)}</span>
                       </div>
-                      {totals.totalDiscount > 0 && (
+                      {totals.orderDiscount > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Discount ({(totals.subtotal > 0 ? (totals.totalDiscount / totals.subtotal * 100) : 0).toFixed(1)}%):</span>
-                          <span className="font-medium text-red-600">- Rs. {(totals?.totalDiscount || 0).toFixed(2)}</span>
+                          <span className="text-gray-600">Discount ({formatOrderDiscountPct(totals.discountPct)}%):</span>
+                          <span className="font-medium text-red-600">- Rs. {(totals?.orderDiscount || 0).toFixed(2)}</span>
                         </div>
                       )}
                       {totals.totalTax > 0 && (
@@ -502,8 +509,8 @@ const DeliveryChallanPage = () => {
                         </div>
                       )}
                       <div className="flex justify-between text-lg font-bold border-t pt-2">
-                        <span>Grand Total:</span>
-                        <span className="text-blue-600">Rs. {(totals?.grandTotal || 0).toFixed(2)}</span>
+                        <span>Net Amount:</span>
+                        <span className="text-blue-600">Rs. {(totals?.netAmount || 0).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

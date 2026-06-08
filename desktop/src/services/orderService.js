@@ -5,6 +5,7 @@
  */
 
 import api from './api';
+import { getLineDisplayValues as calcLineDisplayValues } from '../utils/lineItemCalculations';
 
 const orderService = {
   /**
@@ -214,27 +215,10 @@ const orderService = {
   },
 
   /**
-   * Normalize line item for display (heals legacy double-discount data).
+   * Normalize line item for display (orders + deliveries).
    */
   getLineDisplayValues(item) {
-    const qty = parseFloat(item.quantity) || 0;
-    const unitPrice = parseFloat(item.unit_price) || 0;
-    const grossTotal = parseFloat((qty * unitPrice).toFixed(2));
-    const discountAmount = parseFloat(item.discount_amount ?? item.discount ?? 0) || 0;
-    const expectedNet = parseFloat((grossTotal - discountAmount).toFixed(2));
-    const storedNet = item.net_price != null ? parseFloat(item.net_price) : null;
-    const netPrice =
-      storedNet != null && Math.abs(storedNet - expectedNet) < 0.02
-        ? storedNet
-        : expectedNet;
-    const discountPercentage =
-      item.discount_percentage != null && item.discount_percentage !== ''
-        ? parseFloat(item.discount_percentage)
-        : grossTotal > 0
-          ? parseFloat(((discountAmount / grossTotal) * 100).toFixed(1))
-          : 0;
-
-    return { grossTotal, discountAmount, discountPercentage, netPrice };
+    return calcLineDisplayValues(item);
   },
 
   /**

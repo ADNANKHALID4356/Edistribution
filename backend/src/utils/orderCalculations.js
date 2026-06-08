@@ -18,18 +18,36 @@ function normalizeOrderLineItem(item) {
   const qty = parseFloat(item.quantity) || 0;
   const unitPrice = parseFloat(item.unit_price) || 0;
   const grossTotal = round2(qty * unitPrice);
-  const discountAmount = round2(item.discount_amount ?? item.discount ?? 0);
+  const storedNetRaw = item.net_price ?? item.net_amount;
+  const storedNet =
+    storedNetRaw != null && storedNetRaw !== '' ? round2(storedNetRaw) : null;
+
+  let discountAmount = round2(item.discount_amount ?? item.discount ?? 0);
+  if (
+    discountAmount === 0 &&
+    storedNet != null &&
+    storedNet < grossTotal - 0.01
+  ) {
+    discountAmount = round2(grossTotal - storedNet);
+  }
+
   const expectedNet = round2(grossTotal - discountAmount);
 
-  const storedNet = item.net_price != null && item.net_price !== ''
-    ? round2(item.net_price)
-    : null;
+  let netPrice = expectedNet;
+  if (storedNet != null) {
+    if (Math.abs(storedNet - expectedNet) < 0.02) {
+      netPrice = storedNet;
+    } else if (storedNet < grossTotal - 0.01) {
+      netPrice = storedNet;
+      if (discountAmount === 0) {
+        discountAmount = round2(grossTotal - netPrice);
+      }
+    }
+  }
 
-  // Heal legacy rows where discount was applied twice (stored net too low).
-  const netPrice =
-    storedNet != null && Math.abs(storedNet - expectedNet) < 0.02
-      ? storedNet
-      : expectedNet;
+  if (discountAmount > 0 && Math.abs(netPrice - grossTotal) < 0.02) {
+    netPrice = expectedNet;
+  }
 
   const discountPercentage =
     item.discount_percentage != null && item.discount_percentage !== ''

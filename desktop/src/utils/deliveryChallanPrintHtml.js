@@ -1,18 +1,17 @@
 /**
  * Delivery challan print HTML (browser print / Save as PDF).
- * Layout v6: classic table with Disc column (actual amount) in two side-by-side columns.
+ * Layout v6: classic table with Disc column (% + amount) in two side-by-side columns.
  */
-export const DELIVERY_PRINT_LAYOUT_VERSION = 'v6-classic-2col-disc-labels';
+import { getLineDisplayValues, formatOrderDiscountPct } from './lineItemCalculations';
+
+export const DELIVERY_PRINT_LAYOUT_VERSION = 'v7-disc-pct-shared-calc';
+
+function lineNetAmount(item) {
+  return getLineDisplayValues(item).netPrice;
+}
 
 function lineDiscountAmount(item) {
-  const qty = parseFloat(item.quantity_delivered || item.quantity_ordered || 0);
-  const price = parseFloat(item.unit_price || 0);
-  const grossTotal = qty * price;
-  const itemTotal = parseFloat(item.total_price || 0);
-  const itemDiscountAmt = parseFloat(item.discount_amount || 0);
-  if (itemDiscountAmt > 0) return itemDiscountAmt;
-  if (grossTotal > itemTotal) return grossTotal - itemTotal;
-  return 0;
+  return getLineDisplayValues(item).discountAmount;
 }
 
 function lineDiscountKept(item) {
@@ -28,14 +27,22 @@ function buildItemRow(item, rowNum, lineNetBaseline) {
   const ret = parseFloat(item.quantity_returned || 0);
   const kept = Math.max(qty - ret, 0);
   const price = parseFloat(item.unit_price || 0);
-  const lineNetFull = lineNetBaseline(item);
+  const lineNetFull = lineNetBaseline ? lineNetBaseline(item) : lineNetAmount(item);
   const lineNetKept = qty > 0 ? lineNetFull * (kept / qty) : 0;
   const discKept = lineDiscountKept(item);
+  const grossKept = kept * price;
+  const lineValues = getLineDisplayValues(item);
+  const discPct =
+    lineValues.discountPercentage > 0
+      ? lineValues.discountPercentage
+      : grossKept > 0
+        ? (discKept / grossKept) * 100
+        : 0;
   const qtyLabel =
     ret > 0 ? `${kept}<span style="font-size:4.5pt">(-${ret})</span>` : `${kept}`;
   const discCell =
     discKept > 0
-      ? `<span class="disc-amt">-${discKept.toFixed(0)}</span>`
+      ? `<span class="disc-amt">${formatOrderDiscountPct(discPct)}%<br>-${discKept.toFixed(0)}</span>`
       : '';
 
   return `
@@ -114,6 +121,10 @@ export function buildDeliveryChallanPrintDocument({
   const rightItems = items.slice(splitAt);
 
   const totalLineDiscount = items.reduce((sum, item) => sum + lineDiscountKept(item), 0);
+  const headerDiscountPct =
+    parseFloat(challan.discount_percentage) > 0
+      ? parseFloat(challan.discount_percentage)
+      : effectiveDiscountPct;
 
   const leftTable = buildItemsColumnTable(leftItems, 0, lineNetBaseline);
   const rightTable = buildItemsColumnTable(rightItems, splitAt, lineNetBaseline);
@@ -382,7 +393,7 @@ export function buildDeliveryChallanPrintDocument({
     <div class="fin-row border"><span>Subtotal</span><span>${sub.toFixed(0)}</span></div>
     ${
       effectiveDiscount > 0
-        ? `<div class="fin-row border"><span>Disc ${effectiveDiscountPct.toFixed(0)}%</span><span>-${effectiveDiscount.toFixed(0)}</span></div>`
+        ? `<div class="fin-row border"><span>Disc (${formatOrderDiscountPct(headerDiscountPct)}%)</span><span>-${effectiveDiscount.toFixed(0)}</span></div>`
         : ''
     }
     ${

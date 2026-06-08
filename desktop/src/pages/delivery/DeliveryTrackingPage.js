@@ -14,6 +14,8 @@ import deliveryService from '../../services/deliveryService';
 import warehouseService from '../../services/warehouseService';
 import settingsService from '../../services/settingsService';
 import stockReturnService from '../../services/stockReturnService';
+import orderService from '../../services/orderService';
+import { getLineDisplayValues, formatOrderDiscountPct } from '../../utils/lineItemCalculations';
 import {
   buildDeliveryChallanPrintDocument,
   DELIVERY_PRINT_LAYOUT_VERSION,
@@ -219,16 +221,15 @@ const DeliveryTrackingPage = () => {
       const gt = parseFloat(selectedDelivery.grand_total || selectedDelivery.total_amount || 0);
       const storedDiscount = parseFloat(selectedDelivery.discount_amount || 0);
       const effectiveDiscount = storedDiscount > 0 ? storedDiscount : (sub > gt ? sub - gt : 0);
-      const effectiveDiscountPct = sub > 0 && effectiveDiscount > 0 ? (effectiveDiscount / sub * 100) : 0;
+      const storedPct = parseFloat(selectedDelivery.discount_percentage) || 0;
+      const effectiveDiscountPct =
+        storedPct > 0
+          ? storedPct
+          : sub > 0 && effectiveDiscount > 0
+            ? (effectiveDiscount / sub) * 100
+            : 0;
 
-      const lineNetBaseline = (item) => {
-        const net = parseFloat(item.net_amount);
-        if (Number.isFinite(net) && net !== 0) return net;
-        const tp = parseFloat(item.total_price);
-        if (Number.isFinite(tp) && tp !== 0) return tp;
-        const del = parseFloat(item.quantity_delivered || item.quantity_ordered || 0);
-        return del * (parseFloat(item.unit_price) || 0);
-      };
+      const lineNetBaseline = (item) => getLineDisplayValues(item).netPrice;
 
       const items = selectedDelivery.items || [];
       let totalReturnedUnits = 0;
@@ -916,7 +917,7 @@ const DeliveryTrackingPage = () => {
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Quantity</th>
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Price</th>
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Discount %</th>
-                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Total</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Net Price</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -928,10 +929,8 @@ const DeliveryTrackingPage = () => {
                           <td className="px-4 py-2 text-sm text-right">Rs. {parseFloat(item.unit_price || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-right text-red-600">
                             {(() => {
-                              const discAmt = parseFloat(item.discount_amount || 0);
-                              const grossTotal = parseFloat(item.quantity_delivered || item.quantity_ordered || 0) * parseFloat(item.unit_price || 0);
-                              const discPct = parseFloat(item.discount_percentage || 0) || 
-                                (discAmt > 0 && grossTotal > 0 ? (discAmt / grossTotal) * 100 : 0);
+                              const { discountAmount: discAmt, discountPercentage: discPct } =
+                                getLineDisplayValues(item);
                               return discPct > 0 ? (
                                 <div>
                                   <div className="font-medium">{discPct.toFixed(1)}%</div>
@@ -940,7 +939,9 @@ const DeliveryTrackingPage = () => {
                               ) : '-';
                             })()}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">Rs. {parseFloat(item.total_price || 0).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-right">
+                            Rs. {getLineDisplayValues(item).netPrice.toFixed(2)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -954,7 +955,13 @@ const DeliveryTrackingPage = () => {
                 const gt = parseFloat(selectedDelivery.grand_total || selectedDelivery.total_amount || 0);
                 const storedDiscount = parseFloat(selectedDelivery.discount_amount || 0);
                 const effectiveDiscount = storedDiscount > 0 ? storedDiscount : (sub > gt ? sub - gt : 0);
-                const effectiveDiscountPct = sub > 0 && effectiveDiscount > 0 ? (effectiveDiscount / sub * 100) : 0;
+                const storedPct = parseFloat(selectedDelivery.discount_percentage) || 0;
+                const effectiveDiscountPct =
+                  storedPct > 0
+                    ? storedPct
+                    : sub > 0 && effectiveDiscount > 0
+                      ? (effectiveDiscount / sub) * 100
+                      : 0;
                 return (
               <div className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-blue-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -963,18 +970,16 @@ const DeliveryTrackingPage = () => {
                 </h3>
                 
                 <div className="space-y-3">
-                  {/* Items Subtotal */}
                   <div className="flex justify-between items-center py-2 border-b border-blue-200">
-                    <span className="text-sm font-medium text-gray-700">Items Subtotal:</span>
+                    <span className="text-sm font-medium text-gray-700">Total Amount:</span>
                     <span className="text-sm font-semibold text-gray-900">
                       Rs. {sub.toFixed(2)}
                     </span>
                   </div>
 
-                  {/* Discount */}
                   <div className="flex justify-between items-center py-2 border-b border-blue-200">
                     <span className="text-sm font-medium text-gray-700">
-                      Discount ({effectiveDiscountPct.toFixed(2)}%):
+                      Discount ({formatOrderDiscountPct(effectiveDiscountPct)}%):
                     </span>
                     <span className={`text-sm font-semibold ${effectiveDiscount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
                       - Rs. {effectiveDiscount.toFixed(2)}
@@ -1017,7 +1022,7 @@ const DeliveryTrackingPage = () => {
 
                   {/* Grand Total */}
                   <div className="flex justify-between items-center py-3 bg-blue-600 rounded-lg px-4 mt-4">
-                    <span className="text-base font-bold text-white">GRAND TOTAL:</span>
+                    <span className="text-base font-bold text-white">Net Amount:</span>
                     <span className="text-xl font-bold text-white">
                       Rs. {parseFloat(selectedDelivery.grand_total || selectedDelivery.total_amount || 0).toFixed(2)}
                     </span>

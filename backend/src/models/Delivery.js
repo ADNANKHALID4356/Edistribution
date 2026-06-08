@@ -2,10 +2,12 @@
 // Purpose: Manage delivery challan data and operations
 
 const db = require('../config/database');
+const { normalizeOrderLineItem } = require('../utils/orderCalculations');
 const shopLedger = require('./ShopLedger');
 
 // Database type detection
 const useSQLite = process.env.USE_SQLITE === 'true';
+const ORDER_DETAILS_TABLE = useSQLite ? 'order_items' : 'order_details';
 console.log(`📊 Delivery Model: Using ${useSQLite ? 'SQLite' : 'MySQL'} database (USE_SQLITE=${process.env.USE_SQLITE})`);
 
 class Delivery {
@@ -220,13 +222,25 @@ class Delivery {
         `, [delivery.id]);
         
         // Map to consistent field names for frontend
-        delivery.items = items.map(item => ({
-          ...item,
-          quantity: item.quantity_delivered || 0,
-          price: item.unit_price || 0,
-          total: item.total_price || 0,
-          unit: item.pack_size || 'pcs'
-        }));
+        delivery.items = items.map((item) => {
+          const normalized = normalizeOrderLineItem({
+            product_id: item.product_id,
+            quantity: item.quantity_delivered ?? item.quantity_ordered ?? item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            discount_amount: item.discount_amount ?? item.discount,
+            discount_percentage: item.discount_percentage,
+            net_price: item.net_amount ?? item.net_price,
+          });
+          return {
+            ...item,
+            quantity: item.quantity_delivered || 0,
+            price: item.unit_price || 0,
+            total: normalized.net_price,
+            gross_total: normalized.total_price,
+            unit: item.pack_size || 'pcs',
+          };
+        });
       }
 
       return deliveries;
@@ -273,7 +287,26 @@ class Delivery {
         ORDER BY di.id
       `, [id]);
 
-      delivery.items = items;
+      delivery.items = items.map((item) => {
+        const normalized = normalizeOrderLineItem({
+          product_id: item.product_id,
+          quantity: item.quantity_delivered ?? item.quantity_ordered ?? item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          discount_amount: item.discount_amount ?? item.discount,
+          discount_percentage: item.discount_percentage,
+          net_price: item.net_amount ?? item.net_price,
+        });
+        return {
+          ...item,
+          total_price: normalized.total_price,
+          discount: normalized.discount,
+          discount_amount: normalized.discount,
+          discount_percentage: normalized.discount_percentage,
+          net_amount: normalized.net_price,
+          net_price: normalized.net_price,
+        };
+      });
       return delivery;
     } catch (error) {
       console.error('❌ Error fetching delivery by ID:', error);
@@ -403,12 +436,21 @@ class Delivery {
         
         const quantityToUse = item.quantity_ordered || item.quantity;
         const unitPriceToUse = item.unit_price || 0;
-        const totalPriceToUse = item.total_price || (quantityToUse * unitPriceToUse);
-        const discountPercentage = item.discount_percentage || 0;
-        const discountAmount = item.discount_amount || 0;
+        const normalized = normalizeOrderLineItem({
+          product_id: item.product_id,
+          quantity: quantityToUse,
+          unit_price: unitPriceToUse,
+          total_price: item.total_price,
+          discount_amount: item.discount_amount ?? item.discount,
+          discount_percentage: item.discount_percentage,
+          net_price: item.net_amount ?? item.net_price,
+        });
+        const totalPriceToUse = normalized.total_price;
+        const discountPercentage = normalized.discount_percentage;
+        const discountAmount = normalized.discount;
         const taxPercentage = item.tax_percentage || 0;
         const taxAmount = item.tax_amount || 0;
-        const netAmount = item.net_amount || totalPriceToUse;
+        const netAmount = normalized.net_price;
         
         console.log('      ✅ Values to INSERT:');
         console.log('         - quantity_ordered:', quantityToUse);
@@ -487,164 +529,186 @@ class Delivery {
    */
   static async updateStatus(id, status, updateData = {}) {
     try {
-      const updates = ['status = ?'];
+      const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP'];
       const params = [status];
 
-      // Map to actual DB column names
       const receiverName = updateData.receiver_name || updateData.received_by;
       const notes = updateData.notes || updateData.remarks;
+      const deliveredDate = updateData.delivered_date || updateData.actual_delivery_time;
+
+      if (receiverName) {
+        updates.push('receiver_name = ?');
+        params.push(receiverName);
+      }
+
+      if (deliveredDate) {
+        updates.push('delivery_date = ?');
+        params.push(deliveredDate);
+      }
 
       if (status === 'delivered') {
-        if (receiverName) {
-          updates.push('receiver_name = ?');
-          params.push(receiverName);
-        }
-
-        // Get delivery details to check if it was created from an order
         const [delivery] = await db.query(
-          'SELECT warehouse_id, order_id, shop_id, challan_number FROM deliveries WHERE id = ?',
+          `SELECT warehouse_id, order_id, shop_id, challan_number, grand_total, total_amount
+           FROM deliveries WHERE id = ?`,
           [id]
         );
 
         if (delivery.length > 0) {
+          const deliveryRow = delivery[0];
           const [items] = await db.query(
             'SELECT * FROM delivery_items WHERE delivery_id = ?',
             [id]
           );
 
-          if (delivery[0].order_id) {
-            // Delivery was created from an order — stock was already deducted
-            // at order creation time. Only release the warehouse reservation.
-            for (const item of items) {
-              await db.query(`
-                UPDATE warehouse_stock 
-                SET reserved_quantity = CASE 
-                  WHEN reserved_quantity >= ? THEN reserved_quantity - ?
-                  ELSE 0
-                END
-                WHERE warehouse_id = ? AND product_id = ?
-              `, [
-                item.quantity_delivered,
-                item.quantity_delivered,
-                delivery[0].warehouse_id,
-                item.product_id
-              ]);
-            }
-          } else {
-            // Independent delivery (no order) — deduct stock now
-            for (const item of items) {
-              await db.query(`
-                UPDATE warehouse_stock 
-                SET 
-                  quantity = CASE 
-                    WHEN quantity >= ? THEN quantity - ?
-                    ELSE 0
-                  END,
-                  reserved_quantity = CASE 
-                    WHEN reserved_quantity >= ? THEN reserved_quantity - ?
-                    ELSE 0
-                  END
-                WHERE warehouse_id = ? AND product_id = ?
-              `, [
-                item.quantity_delivered,
-                item.quantity_delivered,
-                item.quantity_delivered,
-                item.quantity_delivered,
-                delivery[0].warehouse_id,
-                item.product_id
-              ]);
+          const warehouseId = deliveryRow.warehouse_id;
 
-              // Also deduct from global product stock for independent deliveries
+          if (warehouseId) {
+            if (deliveryRow.order_id) {
+              for (const item of items) {
+                await db.query(
+                  `UPDATE warehouse_stock
+                   SET reserved_quantity = CASE
+                     WHEN reserved_quantity >= ? THEN reserved_quantity - ?
+                     ELSE 0
+                   END
+                   WHERE warehouse_id = ? AND product_id = ?`,
+                  [
+                    item.quantity_delivered,
+                    item.quantity_delivered,
+                    warehouseId,
+                    item.product_id,
+                  ]
+                );
+              }
+            } else {
+              for (const item of items) {
+                await db.query(
+                  `UPDATE warehouse_stock
+                   SET
+                     quantity = CASE WHEN quantity >= ? THEN quantity - ? ELSE 0 END,
+                     reserved_quantity = CASE
+                       WHEN reserved_quantity >= ? THEN reserved_quantity - ?
+                       ELSE 0
+                     END
+                   WHERE warehouse_id = ? AND product_id = ?`,
+                  [
+                    item.quantity_delivered,
+                    item.quantity_delivered,
+                    item.quantity_delivered,
+                    item.quantity_delivered,
+                    warehouseId,
+                    item.product_id,
+                  ]
+                );
+
+                await db.query(
+                  'UPDATE products SET stock_quantity = CASE WHEN stock_quantity >= ? THEN stock_quantity - ? ELSE 0 END WHERE id = ?',
+                  [item.quantity_delivered, item.quantity_delivered, item.product_id]
+                );
+              }
+            }
+          }
+
+          if (deliveryRow.order_id) {
+            if (useSQLite) {
               await db.query(
-                'UPDATE products SET stock_quantity = CASE WHEN stock_quantity >= ? THEN stock_quantity - ? ELSE 0 END WHERE id = ?',
-                [item.quantity_delivered, item.quantity_delivered, item.product_id]
+                `UPDATE orders SET status = 'delivered', delivery_status = 'delivered' WHERE id = ?`,
+                [deliveryRow.order_id]
+              );
+            } else {
+              await db.query(
+                `UPDATE orders SET status = 'delivered', delivery_status = 'delivered' WHERE id = ?`,
+                [deliveryRow.order_id]
               );
             }
+            console.log(`✅ Order ${deliveryRow.order_id} marked delivered`);
           }
 
-          // Update the associated order status to 'delivered' if applicable
-          if (delivery[0].order_id) {
-            await db.query(
-              'UPDATE orders SET status = ? WHERE id = ?',
-              ['delivered', delivery[0].order_id]
+          // Order-based challans already post to ledger in createFromOrder.
+          if (deliveryRow.shop_id && !deliveryRow.order_id) {
+            const [delTotals] = await db.query(
+              `SELECT SUM(COALESCE(net_amount, total_price, quantity_delivered * unit_price, 0)) as total
+               FROM delivery_items WHERE delivery_id = ?`,
+              [id]
             );
-            console.log(`✅ Order ${delivery[0].order_id} status updated to delivered`);
-          }
+            const totalAmount =
+              parseFloat(delTotals[0]?.total) ||
+              parseFloat(deliveryRow.grand_total) ||
+              parseFloat(deliveryRow.total_amount) ||
+              0;
 
-          // -- FINANCIAL LEDGER INTEGRATION (INVOICE BYPASS) --
-          // Bypass Invoice and directly post delivery amount to shop ledger
-          if (delivery[0].shop_id) {
-            let totalAmount = 0;
-            
-            if (delivery[0].order_id) {
-               const [delTotals] = await db.query(`
-                 SELECT SUM(di.quantity_delivered * (od.net_price / NULLIF(od.quantity, 0))) as total
-                 FROM delivery_items di
-                 JOIN order_details od ON di.product_id = od.product_id AND od.order_id = ?
-                 WHERE di.delivery_id = ?
-               `, [delivery[0].order_id, id]);
-               
-               totalAmount = delTotals[0]?.total || 0;
-            } else {
-               const [delTotals] = await db.query(`
-                 SELECT SUM(COALESCE(net_amount, total_price, quantity_delivered * unit_price, 0)) as total
-                 FROM delivery_items 
-                 WHERE delivery_id = ?
-               `, [id]);
-               
-               totalAmount = delTotals[0]?.total || 0;
-            }
-            
             if (totalAmount > 0) {
-              const [shopInfo] = await db.query('SELECT shop_name FROM shops WHERE id = ?', [delivery[0].shop_id]);
-              
-              await shopLedger.createEntry({
-                shop_id: delivery[0].shop_id,
-                shop_name: shopInfo.length > 0 ? shopInfo[0].shop_name : 'Unknown Shop',
-                transaction_date: new Date(),
-                transaction_type: 'Invoice',
-                reference_type: 'Delivery',
-                reference_id: id,
-                reference_number: delivery[0].challan_number,
-                debit_amount: 0,
-                credit_amount: totalAmount,
-                description: `Delivery Challan ${delivery[0].challan_number}`,
-                created_by_name: updateData.updated_by_name || updateData.received_by || 'System',
-                is_manual: 0
-              });
-              
-              console.log(`🤑 [LEDGER INTEGRATED] Posted Delivery ${delivery[0].challan_number} sum of ${totalAmount} directly as Invoice debt to Shop ${delivery[0].shop_id}`);
+              const [existingLedger] = await db.query(
+                `SELECT id FROM shop_ledger
+                 WHERE reference_id = ?
+                   AND LOWER(reference_type) IN ('delivery', 'invoice')
+                 LIMIT 1`,
+                [id]
+              );
+
+              if (!existingLedger.length) {
+                const [shopInfo] = await db.query(
+                  'SELECT shop_name FROM shops WHERE id = ?',
+                  [deliveryRow.shop_id]
+                );
+
+                await shopLedger.createEntry({
+                  shop_id: deliveryRow.shop_id,
+                  shop_name: shopInfo.length > 0 ? shopInfo[0].shop_name : 'Unknown Shop',
+                  transaction_date: deliveredDate || new Date(),
+                  transaction_type: 'Invoice',
+                  reference_type: 'Delivery',
+                  reference_id: id,
+                  reference_number: deliveryRow.challan_number,
+                  debit_amount: 0,
+                  credit_amount: totalAmount,
+                  description: `Delivery Challan ${deliveryRow.challan_number}`,
+                  created_by_name: updateData.updated_by_name || updateData.received_by || 'System',
+                  is_manual: 0,
+                });
+
+                console.log(
+                  `🤑 Posted standalone delivery ${deliveryRow.challan_number} to shop ledger: ${totalAmount}`
+                );
+              }
             }
           }
         }
       } else if (status === 'cancelled' || status === 'returned') {
-        // Release reserved stock without reducing actual stock
         const [items] = await db.query(
           'SELECT * FROM delivery_items WHERE delivery_id = ?',
           [id]
         );
 
         const [delivery] = await db.query(
-          'SELECT warehouse_id FROM deliveries WHERE id = ?',
+          'SELECT warehouse_id, order_id FROM deliveries WHERE id = ?',
           [id]
         );
 
-        if (delivery.length > 0) {
+        if (delivery.length > 0 && delivery[0].warehouse_id) {
           for (const item of items) {
-            await db.query(`
-              UPDATE warehouse_stock 
-              SET reserved_quantity = CASE 
-                WHEN reserved_quantity >= ? THEN reserved_quantity - ?
-                ELSE 0
-              END
-              WHERE warehouse_id = ? AND product_id = ?
-            `, [
-              item.quantity_delivered,
-              item.quantity_delivered,
-              delivery[0].warehouse_id,
-              item.product_id
-            ]);
+            await db.query(
+              `UPDATE warehouse_stock
+               SET reserved_quantity = CASE
+                 WHEN reserved_quantity >= ? THEN reserved_quantity - ?
+                 ELSE 0
+               END
+               WHERE warehouse_id = ? AND product_id = ?`,
+              [
+                item.quantity_delivered,
+                item.quantity_delivered,
+                delivery[0].warehouse_id,
+                item.product_id,
+              ]
+            );
           }
+        }
+
+        if (delivery.length > 0 && delivery[0].order_id && useSQLite) {
+          await db.query(
+            `UPDATE orders SET delivery_status = 'partial' WHERE id = ?`,
+            [delivery[0].order_id]
+          );
         }
       }
 
@@ -868,26 +932,17 @@ class Delivery {
         throw new Error('Order has no items');
       }
 
-      // Normalize item discount fields - compute percentage from amount if needed
-      for (const item of orderItems) {
-        const grossTotal = parseFloat(item.unit_price || 0) * parseFloat(item.quantity || 0);
-        const discountAmt = parseFloat(item.discount) || 0;
-        const discountPct = parseFloat(item.discount_percentage) || 0;
-        
-        // Use whichever discount source is available
-        if (discountPct > 0 && discountAmt === 0) {
-          item.discount_amount = grossTotal * discountPct / 100;
-          item.discount_percentage = discountPct;
-        } else if (discountAmt > 0 && discountPct === 0) {
-          item.discount_amount = discountAmt;
-          item.discount_percentage = grossTotal > 0 ? (discountAmt / grossTotal) * 100 : 0;
-        } else {
-          item.discount_amount = discountAmt;
-          item.discount_percentage = discountPct;
-        }
-        
-        // Calculate proper net_price
-        item.net_price = parseFloat(item.net_price) || (grossTotal - item.discount_amount);
+      // Normalize line items (gross total_price, net net_price — same as orders)
+      for (let i = 0; i < orderItems.length; i++) {
+        const normalized = normalizeOrderLineItem({
+          ...orderItems[i],
+          discount_amount: orderItems[i].discount ?? orderItems[i].discount_amount,
+        });
+        orderItems[i].gross_total = normalized.total_price;
+        orderItems[i].total_price = normalized.total_price;
+        orderItems[i].discount_amount = normalized.discount;
+        orderItems[i].discount_percentage = normalized.discount_percentage;
+        orderItems[i].net_price = normalized.net_price;
       }
 
       console.log(`✅ Fetched ${orderItems.length} order items`);
@@ -896,21 +951,26 @@ class Delivery {
       const challanNumber = await this.generateChallanNumber();
       console.log('📋 Generated challan number:', challanNumber);
 
-      // 5. Calculate totals from order items
+      // 5. Calculate totals from normalized line nets + order-level discount
       const totalItems = orderItems.length;
       const totalQuantity = orderItems.reduce((sum, item) => 
         sum + parseFloat(item.quantity || 0), 0
       );
-      
-      // Use order's total amounts (preserves discounts from order)
-      // Calculate discount from difference between total_amount and net_amount (most reliable)
-      const subtotal = parseFloat(order.total_amount) || 0;
-      const netAmount = parseFloat(order.net_amount) || subtotal;
-      const calculatedDiscount = subtotal > netAmount ? subtotal - netAmount : 0;
+
+      const itemsNetSubtotal = orderItems.reduce(
+        (sum, item) => sum + parseFloat(item.net_price || 0),
+        0
+      );
+      const subtotal = parseFloat(itemsNetSubtotal.toFixed(2));
+      const orderNet = parseFloat(order.net_amount) || subtotal;
       const explicitDiscount = parseFloat(order.discount_amount) || parseFloat(order.discount) || 0;
-      const discountAmount = Math.max(calculatedDiscount, explicitDiscount);
-      const discountPercentage = subtotal > 0 && discountAmount > 0 ? (discountAmount / subtotal) * 100 : 0;
-      const finalNetAmount = subtotal - discountAmount;
+      const calculatedDiscount = subtotal > orderNet ? subtotal - orderNet : 0;
+      const discountAmount = parseFloat(
+        Math.max(explicitDiscount, calculatedDiscount).toFixed(2)
+      );
+      const discountPercentage =
+        subtotal > 0 && discountAmount > 0 ? (discountAmount / subtotal) * 100 : 0;
+      const finalNetAmount = parseFloat((subtotal - discountAmount).toFixed(2));
 
       console.log('📊 Calculated totals:');
       console.log('   - Total Items:', totalItems);
@@ -1028,10 +1088,10 @@ class Delivery {
               item.quantity, // Initially, quantity_delivered = quantity_ordered
               0, // quantity_returned = 0
               item.unit_price,
-              item.total_price,
+              item.gross_total || item.total_price,
               item.discount_percentage || 0,
               item.discount_amount || 0,
-              item.net_price || item.total_price
+              item.net_price
             ]);
           } else {
             await connection.query(`
@@ -1059,10 +1119,10 @@ class Delivery {
               item.quantity, // Initially, quantity_delivered = quantity_ordered
               0, // quantity_returned = 0
               item.unit_price,
-              item.total_price,
+              item.gross_total || item.total_price,
               item.discount_percentage || 0,
               item.discount_amount || 0,
-              item.net_price || item.total_price,
+              item.net_price,
               unitPurchaseCost
             ]);
           }
@@ -1070,25 +1130,18 @@ class Delivery {
 
       console.log('✅ All delivery items inserted and stock reserved');
 
-      // 9. Update order delivery status
-      console.log('🔄 Updating order delivery status...');
-      if (useSQLite) {
-        // SQLite: Update delivery_generated and delivery_status columns
-        await connection.query(`
-          UPDATE orders 
+      // 9. Mark order as challan-generated (physical delivery happens later)
+      console.log('🔄 Updating order delivery tracking...');
+      await connection.query(
+        `
+          UPDATE orders
           SET delivery_generated = 1,
-              delivery_status = 'delivered'
+              delivery_status = 'partial'
           WHERE id = ?
-        `, [orderId]);
-      } else {
-        // MySQL: Update status field only (no delivery_generated/delivery_status columns)
-        await connection.query(`
-          UPDATE orders 
-          SET status = 'delivered'
-          WHERE id = ?
-        `, [orderId]);
-      }
-      console.log('✅ Order delivery status updated');
+        `,
+        [orderId]
+      );
+      console.log('✅ Order delivery_status set to partial (challan created)');
 
       // 10. Create shop ledger entry (NEW - directly from delivery)
       console.log('📒 Creating shop ledger entry from delivery...');

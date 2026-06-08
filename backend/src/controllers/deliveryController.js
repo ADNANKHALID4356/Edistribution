@@ -32,6 +32,9 @@ exports.getAvailableOrdersForDelivery = async (req, res) => {
       LEFT JOIN routes r ON o.route_id = r.id
       LEFT JOIN ${process.env.USE_SQLITE === 'true' ? 'order_items' : 'order_details'} od ON o.id = od.order_id
       WHERE o.status IN ('approved', 'finalized')
+        AND NOT EXISTS (
+          SELECT 1 FROM deliveries d WHERE d.order_id = o.id
+        )
       GROUP BY o.id
       ORDER BY o.created_at DESC
       LIMIT 100
