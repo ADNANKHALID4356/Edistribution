@@ -5,6 +5,7 @@
  */
 
 const db = require('../config/database');
+const { normalizeOrderLineItem } = require('../utils/orderCalculations');
 
 // Detect which database is being used and set table name accordingly
 // SQLite uses 'order_items', MySQL uses 'order_details'
@@ -630,36 +631,27 @@ const Order = {
 
     // Normalize SQLite items to match MySQL schema
     if (useSQLite) {
-      order.items = details.map(item => {
-        // SQLite uses discount_percentage, calculate discount amount
-        const discount = item.total_price * ((item.discount_percentage || 0) / 100);
-        const net_price = item.total_price - discount;
-        
+      order.items = details.map((item) => {
+        const normalized = normalizeOrderLineItem(item);
         return {
           ...item,
-          discount: discount,
-          discount_amount: discount,
-          net_price: net_price
+          total_price: normalized.total_price,
+          discount: normalized.discount,
+          discount_amount: normalized.discount_amount,
+          discount_percentage: normalized.discount_percentage,
+          net_price: normalized.net_price,
         };
       });
     } else {
-      // MySQL: Ensure all discount fields are present and normalized
-      order.items = details.map(item => {
-        // MySQL may have various discount field names - normalize them
-        const discount_amount = item.discount_amount || item.discount || 0;
-        // Calculate discount_percentage from amount if not stored
-        // Use gross total (qty * unit_price) as base, NOT total_price (which is net)
-        const grossTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-        const discount_percentage = parseFloat(item.discount_percentage) || 
-          (discount_amount > 0 && grossTotal > 0 ? (discount_amount / grossTotal) * 100 : 0);
-        const net_price = item.net_price || (item.total_price - discount_amount);
-        
+      order.items = details.map((item) => {
+        const normalized = normalizeOrderLineItem(item);
         return {
           ...item,
-          discount: discount_amount,
-          discount_amount: discount_amount,
-          discount_percentage: discount_percentage,
-          net_price: net_price
+          total_price: normalized.total_price,
+          discount: normalized.discount,
+          discount_amount: normalized.discount_amount,
+          discount_percentage: normalized.discount_percentage,
+          net_price: normalized.net_price,
         };
       });
     }
@@ -971,20 +963,25 @@ const Order = {
 
           // Insert new order items
           if (useSQLite) {
-            // SQLite: Individual inserts with discount_percentage (no net_price column)
+            // SQLite: Individual inserts with discount, discount_percentage, and net_price
             console.log('🔍 [ORDER UPDATE] Using SQLite - inserting items individually');
             for (const item of items) {
-              // Calculate discount_percentage from discount amount
-              const discount_percentage = item.discount && item.total_price > 0 
-                ? (item.discount / item.total_price) * 100 
-                : 0;
+              const discountAmt = parseFloat(item.discount) || 0;
+              // gross_total = qty * unit_price; discount_percentage is based on gross total
+              const gross_total = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+              const discount_percentage = item.discount_percentage !== undefined
+                ? parseFloat(item.discount_percentage)
+                : (discountAmt > 0 && gross_total > 0 ? (discountAmt / gross_total) * 100 : 0);
+              const net_price = item.net_price !== undefined
+                ? parseFloat(item.net_price)
+                : (item.total_price - discountAmt);
               const unit_purchase_cost = purchasePriceMap[item.product_id] || 0;
               
               await connection.query(
                 `INSERT INTO ${ORDER_DETAILS_TABLE} 
-                 (order_id, product_id, quantity, unit_price, total_price, discount_percentage, unit_purchase_cost)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [id, item.product_id, item.quantity, item.unit_price, item.total_price, discount_percentage, unit_purchase_cost]
+                 (order_id, product_id, quantity, unit_price, total_price, discount, discount_percentage, net_price, unit_purchase_cost)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [id, item.product_id, item.quantity, item.unit_price, item.total_price, discountAmt, discount_percentage, net_price, unit_purchase_cost]
               );
             }
             console.log('✅ [ORDER UPDATE] New order items inserted (SQLite)');

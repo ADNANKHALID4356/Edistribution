@@ -10,40 +10,25 @@ import dbHelper from '../database/dbHelper';
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ORDER_STATUS } from '../database/schema';
+import {
+  calculateOrderTotals as calcOrderTotals,
+  getLineNetPrice,
+  toSyncLineItem,
+} from '../utils/orderCalculations';
 
 class OrderService {
   /**
-   * Calculate order totals
+   * Calculate order totals (delegates to shared orderCalculations utility).
    */
   calculateOrderTotals(items, discountAmount = 0) {
-    let subtotal = 0;
-    
-    // Calculate subtotal from items
-    items.forEach(item => {
-      subtotal += item.total_price;
-    });
-    
-    // Parse discount as a fixed price amount
-    const discount = parseFloat(discountAmount) || 0;
-    
-    // Calculate total
-    const totalAmount = subtotal - discount;
-    
-    return {
-      subtotal: parseFloat(subtotal.toFixed(2)),
-      discount_percentage: 0, // Not used anymore, kept for compatibility
-      discount_amount: parseFloat(discount.toFixed(2)),
-      tax_amount: 0, // No tax for now
-      total_amount: parseFloat(totalAmount.toFixed(2))
-    };
+    return calcOrderTotals(items, discountAmount);
   }
 
   /**
-   * Calculate item total price
+   * Calculate item net line total.
    */
   calculateItemTotal(quantity, unitPrice, discountAmount = 0) {
-    const total = (quantity * unitPrice) - discountAmount;
-    return parseFloat(total.toFixed(2));
+    return getLineNetPrice(quantity, unitPrice, 0, discountAmount);
   }
 
   /**
@@ -248,13 +233,7 @@ class OrderService {
             tax_amount: order.tax_amount,
             total_amount: order.total_amount,
             notes: order.notes,
-            items: order.items.map(item => ({
-              product_id: item.product_id,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              total_price: item.total_price,
-              discount_amount: item.discount_amount
-            }))
+            items: order.items.map((item) => toSyncLineItem(item))
           };
           
           console.log('🔍 [MOBILE SYNC] Order data prepared:', JSON.stringify(orderData, null, 2));

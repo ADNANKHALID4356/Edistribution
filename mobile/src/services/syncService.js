@@ -11,6 +11,7 @@ import api from './api';
 import dbHelper from '../database/dbHelper';
 import { TABLES, SYNC_STATUS } from '../database/schema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { toSyncLineItem } from '../utils/orderCalculations';
 
 // Sprint 9: Retry configuration with exponential backoff
 const RETRY_CONFIG = {
@@ -673,14 +674,7 @@ class SyncService {
               discount: order.discount_amount || 0,
               net_amount: order.total_amount,
               notes: order.notes || '',
-              items: items.map(item => ({
-                product_id: item.product_id,
-                quantity: item.quantity,
-                unit_price: item.unit_price,
-                total_price: item.total_price,
-                discount: item.discount_amount || 0,
-                net_price: item.total_price - (item.discount_amount || 0),
-              })),
+              items: items.map((item) => toSyncLineItem(item)),
             };
           })
         );
@@ -1148,14 +1142,7 @@ class SyncService {
             discount: order.discount_amount || 0,
             net_amount: order.total_amount,
             notes: order.notes || '',
-            items: items.map(item => ({
-              product_id: item.product_id,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              total_price: item.total_price,
-              discount: item.discount_amount || 0,
-              net_price: item.total_price - (item.discount_amount || 0),
-            })),
+            items: items.map((item) => toSyncLineItem(item)),
           };
         })
       );

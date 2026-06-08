@@ -7,7 +7,8 @@
   },
   "files": [
     "build/**/*",
-    "public/electron-client.js",
+    "electron-client.js",
+    "public/icon.ico",
     "package.json"
   ],
   "win": {
@@ -17,8 +18,10 @@
         "arch": ["x64"]
       }
     ],
+    "icon": "public/icon.ico",
     "artifactName": "${productName}-Setup-${version}.${ext}",
-    "forceCodeSigning": false
+    "forceCodeSigning": false,
+    "signAndEditExecutable": false
   },
   "nsis": {
     "oneClick": false,

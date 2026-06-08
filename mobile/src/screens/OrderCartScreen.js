@@ -21,6 +21,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import orderService from '../services/orderService';
+import { applyLineDiscount, applyQuantityChange } from '../utils/orderCalculations';
 import syncService from '../services/syncService';
 import dbHelper from '../database/dbHelper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -80,26 +81,13 @@ const OrderCartScreen = ({ route, navigation }) => {
       return;
     }
     
-    updatedItems[index].quantity = newQuantity;
-    const itemDiscount = updatedItems[index].discount_percentage || 0;
-    const subtotal = newQuantity * updatedItems[index].unit_price;
-    const discountAmount = (subtotal * itemDiscount) / 100;
-    updatedItems[index].total_price = subtotal - discountAmount;
-    updatedItems[index].discount_amount = discountAmount;
-    
+    updatedItems[index] = applyQuantityChange(updatedItems[index], newQuantity);
     setItems(updatedItems);
   };
 
   const updateItemDiscount = (index, discount) => {
     const updatedItems = [...items];
-    const discountValue = parseFloat(discount) || 0;
-    updatedItems[index].discount_percentage = discountValue;
-    
-    const subtotal = updatedItems[index].quantity * updatedItems[index].unit_price;
-    const discountAmount = (subtotal * discountValue) / 100;
-    updatedItems[index].discount_amount = discountAmount;
-    updatedItems[index].total_price = subtotal - discountAmount;
-    
+    updatedItems[index] = applyLineDiscount(updatedItems[index], discount);
     setItems(updatedItems);
   };
 

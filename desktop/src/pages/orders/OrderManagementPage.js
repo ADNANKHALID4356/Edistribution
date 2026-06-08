@@ -1126,10 +1126,8 @@ const OrderManagementPage = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {selectedOrder.items && selectedOrder.items.map((item, index) => {
-                      const discountAmt = parseFloat(item.discount || 0);
-                      const discountPct = parseFloat(item.discount_percentage) || 
-                        (discountAmt > 0 && item.total_price > 0 ? (discountAmt / item.total_price) * 100 : 0);
-                      const netPrice = item.net_price || (item.total_price - discountAmt);
+                      const { discountAmount: discountAmt, discountPercentage: discountPct, netPrice } =
+                        orderService.getLineDisplayValues(item);
                       return (
                         <tr key={index}>
                           <td className="px-4 py-2 text-sm text-gray-900">{item.product_name}</td>
@@ -1311,8 +1309,7 @@ const OrderManagementPage = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {editFormData.items.map((item, index) => {
-                        // Calculate net_price if not provided
-                        const netPrice = item.net_price || (item.total_price - (item.discount || 0));
+                        const { netPrice } = orderService.getLineDisplayValues(item);
                         return (
                           <tr key={index}>
                             <td className="px-4 py-3 text-sm text-gray-900">{item.product_name}</td>

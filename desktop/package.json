@@ -85,17 +85,10 @@
     "files": [
       "build/**/*",
       "electron-client.js",
+      "public/icon.ico",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "build",
-        "to": "app",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
+    "asar": true,
     "win": {
       "target": [
         {
@@ -107,7 +100,7 @@
       ],
       "signAndEditExecutable": false,
       "forceCodeSigning": false,
-      "icon": "build/logo512.png",
+      "icon": "public/icon.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {

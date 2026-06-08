@@ -1,0 +1,55 @@
+Distribution System - Mobile App Guide
+======================================
+
+API (pre-configured in APK / Expo Go)
+-------------------------------------
+Backend:  http://147.93.108.205:5005/
+API:      http://147.93.108.205:5005/api
+Health:   http://147.93.108.205:5005/api/health
+
+OPTION A - EXPO GO (fastest test, no APK file)
+----------------------------------------------
+1. Install "Expo Go" from Google Play Store on your phone
+2. On PC, double-click: mobile\START-EXPO-VPS.bat
+3. When prompted: arrow DOWN + Enter = Proceed anonymously
+4. Scan the QR code with Expo Go
+5. On login screen, tap "Test Connection" to verify VPS
+6. Login with salesman credentials
+
+Requirements: Phone + PC on same WiFi, internet access to VPS port 5005
+
+OPTION B - PROFESSIONAL APK (distribution to field staff)
+---------------------------------------------------------
+1. Create free account at https://expo.dev
+2. Open terminal in mobile folder:
+     npx eas-cli login
+3. From project root, double-click: BUILD-MOBILE-APK.bat
+4. Wait 10-15 minutes for cloud build
+5. Download APK from Expo dashboard link
+6. Copy to MOBILE-RELEASE-v1.0.1\Distribution-System-v1.0.1.apk
+
+Install APK on phone:
+  - Enable "Install unknown apps" for your file manager
+  - Open APK file and install
+  - App icon: Distribution System
+
+APP FEATURES
+------------
+- Offline-first with SQLite local database
+- Product catalog, shops, routes sync from VPS
+- Quick order creation and cart
+- Auto-sync orders when internet returns
+- Server settings on login screen (changeable without rebuild)
+
+REQUIREMENTS
+------------
+- Android 6.0+ (API 23)
+- Internet access to 147.93.108.205 port 5005
+- No Node.js needed on phone
+
+TROUBLESHOOTING
+---------------
+- Connection fails: check VPS is running, port 5005 open
+- Expo Go OOM: close Chrome/Cursor, use START-EXPO-VPS.bat only
+- APK build needs login: run "npx eas-cli login" first
+- Login fails: open Server Settings, verify host 147.93.108.205 port 5005

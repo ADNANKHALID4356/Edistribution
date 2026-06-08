@@ -33,6 +33,15 @@ function hasProductionBuild() {
   return fs.existsSync(BUILD_INDEX);
 }
 
+/** Bundled backend.exe path when installed via NSIS installer. */
+function resolveBundledBackendExe() {
+  const candidates = [
+    path.join(process.resourcesPath, 'backend-standalone', 'backend.exe'),
+    path.join(__dirname, 'backend-standalone', 'backend.exe'),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
+
 function httpOk(url, timeoutMs = 2000) {
   return new Promise((resolve) => {
     const req = http.get(url, { timeout: timeoutMs }, (res) => {
@@ -55,19 +64,42 @@ function startBackendIfNeeded() {
       return;
     }
 
-    const backendPath = path.join(__dirname, '..', 'backend');
-    const serverPath = path.join(backendPath, 'server.js');
-    if (!fs.existsSync(serverPath)) {
-      console.warn('⚠️ backend/server.js not found');
-      resolve(null);
-      return;
+    const bundledExe = app.isPackaged ? resolveBundledBackendExe() : null;
+    const backendEnv = {
+      ...process.env,
+      USE_SQLITE: 'true',
+      NODE_ENV: 'production',
+      PORT: '5000',
+    };
+
+    if (bundledExe) {
+      console.log('🚀 Starting bundled backend:', bundledExe);
+      backendProcess = spawn(bundledExe, [], {
+        cwd: path.dirname(bundledExe),
+        env: backendEnv,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } else {
+      const backendPath = path.join(__dirname, '..', 'backend');
+      const serverPath = path.join(backendPath, 'server.js');
+      if (!fs.existsSync(serverPath)) {
+        console.warn('⚠️ backend/server.js not found');
+        resolve(null);
+        return;
+      }
+
+      console.log('🚀 Starting backend (Node)...');
+      backendProcess = spawn('node', [serverPath], {
+        cwd: backendPath,
+        env: { ...backendEnv, NODE_ENV: 'development' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: process.platform === 'win32',
+      });
     }
 
-    console.log('🚀 Starting backend...');
-    backendProcess = spawn(process.execPath, [serverPath], {
-      cwd: backendPath,
-      env: { ...process.env, USE_SQLITE: 'true', NODE_ENV: 'development', PORT: '5000' },
-      stdio: ['ignore', 'pipe', 'pipe'],
+    backendProcess?.stderr?.on('data', (d) => {
+      const msg = d.toString().trim();
+      if (msg && !msg.includes('ExperimentalWarning')) console.error('Backend:', msg);
     });
 
     for (let i = 0; i < 45; i++) {
@@ -151,7 +183,7 @@ function showFatalError(message) {
   win.loadURL(html);
 }
 
-function createMainWindow(loadUrl) {
+function createMainWindow(loadTarget) {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -183,8 +215,17 @@ function createMainWindow(loadUrl) {
     return { action: 'deny' };
   });
 
-  console.log('Loading UI:', loadUrl);
-  mainWindow.loadURL(loadUrl);
+  const isFilePath =
+    typeof loadTarget === 'string' &&
+    !loadTarget.startsWith('http://') &&
+    !loadTarget.startsWith('https://') &&
+    !loadTarget.startsWith('data:');
+  console.log('Loading UI:', loadTarget);
+  if (isFilePath) {
+    mainWindow.loadFile(loadTarget);
+  } else {
+    mainWindow.loadURL(loadTarget);
+  }
 }
 
 async function startProductionMode() {
@@ -198,7 +239,16 @@ async function startProductionMode() {
     return;
   }
 
-  await startBackendIfNeeded();
+  // Packaged client connects to central VPS API; local backend only for dev/unpackaged runs.
+  if (!app.isPackaged) {
+    await startBackendIfNeeded();
+  }
+
+  if (app.isPackaged) {
+    createMainWindow(BUILD_INDEX);
+    return;
+  }
+
   const url = await startStaticServer();
   createMainWindow(url);
 }

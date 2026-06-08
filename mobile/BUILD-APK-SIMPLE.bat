@@ -16,7 +16,7 @@ echo.
 echo The build takes about 10-15 minutes in the cloud.
 echo You'll get a download link for the APK when done.
 echo.
-echo API Configuration: http://147.93.108.205:5001/api (VPS Backend)
+echo API Configuration: http://147.93.108.205:5005/api (VPS Backend)
 echo.
 pause
 

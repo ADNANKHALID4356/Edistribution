@@ -5,6 +5,7 @@
  */
 
 const Order = require('../models/Order');
+const { normalizeOrderPayload } = require('../utils/orderCalculations');
 
 /**
  * Get all orders with pagination and filters (Desktop)
@@ -337,48 +338,27 @@ exports.createOrder = async (req, res) => {
     
     console.log('✅ No duplicate found, proceeding with order creation');
 
-    // Calculate values for backend compatibility
-    // Mobile sends: subtotal (before discount), discount_amount, total_amount (after discount)
-    // Backend expects: total_amount (before discount), discount, net_amount (after discount)
-    const orderTotalAmount = subtotal || total_amount; // Total before discount
-    const orderDiscount = discount_amount || 0; // Discount amount
-    const orderNetAmount = total_amount; // Final amount after discount
-
-    console.log('📊 Calculated values:', {
-      orderTotalAmount,
-      orderDiscount,
-      orderNetAmount,
-      itemsCount: items.length
-    });
-
-    // Validate and map items
-    const mappedItems = items.map((item, index) => {
-      // Validate each item field
-      if (!item.product_id) {
-        throw new Error(`Item ${index + 1}: product_id is required`);
-      }
-      if (!item.quantity || item.quantity <= 0) {
-        throw new Error(`Item ${index + 1}: quantity must be greater than 0`);
-      }
+    // Normalize line items — always derive gross from qty × unit_price
+    items.forEach((item, index) => {
+      if (!item.product_id) throw new Error(`Item ${index + 1}: product_id is required`);
+      if (!item.quantity || item.quantity <= 0) throw new Error(`Item ${index + 1}: quantity must be greater than 0`);
       if (item.unit_price === undefined || item.unit_price === null) {
         throw new Error(`Item ${index + 1}: unit_price is required`);
       }
-      if (item.total_price === undefined || item.total_price === null) {
-        throw new Error(`Item ${index + 1}: total_price is required`);
-      }
+    });
 
-      const discount = parseFloat(item.discount_amount || 0);
-      const totalPrice = parseFloat(item.total_price);
-      const netPrice = totalPrice - discount;
+    const normalized = normalizeOrderPayload({
+      items,
+      subtotal,
+      discount_amount,
+      total_amount,
+    });
 
-      return {
-        product_id: parseInt(item.product_id),
-        quantity: parseFloat(item.quantity),
-        unit_price: parseFloat(item.unit_price),
-        total_price: totalPrice,
-        discount: discount,
-        net_price: netPrice
-      };
+    console.log('📊 Calculated values:', {
+      orderTotalAmount: normalized.total_amount,
+      orderDiscount: normalized.discount,
+      orderNetAmount: normalized.net_amount,
+      itemsCount: normalized.items.length,
     });
 
     const orderPayload = {
@@ -386,12 +366,12 @@ exports.createOrder = async (req, res) => {
       shop_id: parseInt(shop_id),
       route_id: route_id ? parseInt(route_id) : null,
       order_date,
-      total_amount: parseFloat(orderTotalAmount),
-      discount: parseFloat(orderDiscount),
-      net_amount: parseFloat(orderNetAmount),
+      total_amount: normalized.total_amount,
+      discount: normalized.discount,
+      net_amount: normalized.net_amount,
       status: status || 'placed',
       notes: notes || '',
-      items: mappedItems
+      items: normalized.items,
     };
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

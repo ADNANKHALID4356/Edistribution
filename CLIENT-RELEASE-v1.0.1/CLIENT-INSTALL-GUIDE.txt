@@ -1,0 +1,44 @@
+Distribution Management System - Client Install Guide
+====================================================
+
+WHAT YOU RECEIVE
+----------------
+One file:  Distribution Management System-Setup-1.0.1.exe
+
+CENTRAL SERVER (pre-configured)
+-------------------------------
+Backend:  http://147.93.108.205:5001/
+API:      http://147.93.108.205:5001/api
+Health:   http://147.93.108.205:5001/api/health
+
+No server setup is required on the client PC. The app connects to the
+central server automatically after installation.
+
+INSTALL (3 clicks)
+------------------
+1. Double-click the Setup EXE
+2. Click Next, choose install folder (or keep default), click Install
+3. Click Finish — the app opens automatically
+
+DAILY USE
+---------
+- Open "Distribution System" from Desktop or Start Menu
+- Login:  admin  /  admin123
+- Internet connection required to reach the central server
+
+REQUIREMENTS
+------------
+- Windows 10 or 11 (64-bit)
+- 4 GB RAM minimum (8 GB recommended)
+- Network access to 147.93.108.205 port 5001
+- No Node.js or technical setup needed on client PC
+
+TROUBLESHOOTING
+---------------
+- If Windows SmartScreen appears: click "More info" then "Run anyway"
+  (installer is not code-signed yet)
+- If login fails: open Server Settings on the login page and verify
+  Host 147.93.108.205, Port 5001, Protocol http — then Test Connection
+- If connection fails: check firewall/VPN and that port 5001 is reachable
+- If app does not open: restart PC, run installer again
+- For support, contact your software provider

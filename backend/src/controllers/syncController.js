@@ -13,6 +13,7 @@
  */
 
 const db = require('../config/database');
+const { normalizeOrderLineItem } = require('../utils/orderCalculations');
 
 /**
  * POST /api/mobile/sync/orders
@@ -229,31 +230,23 @@ exports.syncOrders = async (req, res) => {
           const orderDetailsTable = useSQLite ? 'order_items' : 'order_details';
           
           for (const item of items) {
-            if (useSQLite) {
-              // SQLite: uses discount_percentage, no net_price
-              const discount_percentage = item.discount && item.total_price > 0 
-                ? (item.discount / item.total_price) * 100 
-                : 0;
-              
-              await connection.query(
-                `INSERT INTO ${orderDetailsTable} 
-                 (order_id, product_id, quantity, unit_price, total_price, discount_percentage) 
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [orderId, item.product_id, item.quantity, item.unit_price, item.total_price, discount_percentage]
-              );
-            } else {
-              // MySQL: has discount, discount_percentage, and net_price
-              const discountAmt = parseFloat(item.discount) || 0;
-              const discount_percentage = discountAmt > 0 && item.total_price > 0 
-                ? (discountAmt / item.total_price) * 100 
-                : 0;
-              await connection.query(
-                `INSERT INTO ${orderDetailsTable} 
-                 (order_id, product_id, quantity, unit_price, total_price, discount, discount_percentage, net_price) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [orderId, item.product_id, item.quantity, item.unit_price, item.total_price, discountAmt, discount_percentage, item.net_price]
-              );
-            }
+            const normalized = normalizeOrderLineItem(item);
+
+            await connection.query(
+              `INSERT INTO ${orderDetailsTable} 
+               (order_id, product_id, quantity, unit_price, total_price, discount, discount_percentage, net_price) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                orderId,
+                normalized.product_id,
+                normalized.quantity,
+                normalized.unit_price,
+                normalized.total_price,
+                normalized.discount,
+                normalized.discount_percentage,
+                normalized.net_price,
+              ]
+            );
           }
           
           // ================================================================

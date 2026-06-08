@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Text, TextInput, Button, Card, HelperText, ActivityIndicator, Divider, IconButton } from 'react-native-paper';
 import { getServerConfig, setServerConfig, testServerConnection, getDefaultConfig } from '../utils/serverConfig';
+import { resetApiBaseUrl } from '../services/api';
 import { useToast } from '../context/ToastContext';
 
 const ServerConfigScreen = ({ navigation }) => {
   const { showToast } = useToast();
-  // Use production defaults as initial state (VPS: 147.93.108.205:5005)
+  // Defaults: local backend in dev, VPS in release builds
   const [config, setConfig] = useState(getDefaultConfig());
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
@@ -59,9 +60,10 @@ const ServerConfigScreen = ({ navigation }) => {
     setSaving(false);
 
     if (result.success) {
+      resetApiBaseUrl();
       Alert.alert(
         'Configuration Saved',
-        'Server configuration updated successfully. Please restart the app for changes to take effect.',
+        'Server configuration updated successfully.',
         [
           {
             text: 'OK',

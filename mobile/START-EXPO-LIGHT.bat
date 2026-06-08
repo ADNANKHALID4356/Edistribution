@@ -14,7 +14,7 @@ echo      npm.cmd run dev
 echo.
 pause
 
-set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.148.95
+set REACT_NATIVE_PACKAGER_HOSTNAME=10.8.128.217
 set NODE_OPTIONS=--max-old-space-size=8192
 set METRO_MAX_WORKERS=1
 

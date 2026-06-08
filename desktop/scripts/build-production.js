@@ -24,7 +24,8 @@ const env = {
   DISABLE_ESLINT_PLUGIN: 'true',
   TSC_COMPILE_ON_ERROR: 'true',
   FAST_REFRESH: 'false',
-  NODE_OPTIONS: process.env.NODE_OPTIONS || '--max-old-space-size=8192',
+  NODE_OPTIONS: process.env.NODE_OPTIONS || '--max-old-space-size=12288',
+  INLINE_RUNTIME_CHUNK: 'false',
 };
 
 console.log('Building desktop UI (please wait, 3–15 minutes)...');

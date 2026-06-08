@@ -8,6 +8,8 @@ import { AuthProvider } from '../src/context/AuthContext';
 import { ToastProvider } from '../src/context/ToastContext';
 import RootNavigator from '../src/navigation/RootNavigator';
 import ErrorBoundary from '../src/components/ErrorBoundary';
+import { initServerConfig } from '../src/utils/serverConfig';
+import { resetApiBaseUrl } from '../src/services/api';
 
 // ===== COMPREHENSIVE ERROR SUPPRESSION =====
 // Ignore ALL logs to prevent any error/warning boxes from showing to users
@@ -50,6 +52,10 @@ const theme = {
 };
 
 export default function Index() {
+  React.useEffect(() => {
+    initServerConfig().then(() => resetApiBaseUrl());
+  }, []);
+
   return (
     <ErrorBoundary>
       <PaperProvider theme={theme}>

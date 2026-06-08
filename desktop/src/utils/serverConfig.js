@@ -15,7 +15,7 @@ const CONFIG_VERSION_KEY = 'serverConfigVersion';
  * Increment this value to force-reset all clients to the new default config.
  * Useful when switching environments (e.g. local → production).
  */
-const CURRENT_CONFIG_VERSION = 1776635000003; // local backend port 5000
+const CURRENT_CONFIG_VERSION = 1776635000005; // VPS 147.93.108.205:5001
 
 /** Timeout in milliseconds for server connection tests. */
 const CONNECTION_TIMEOUT_MS = 5000;
@@ -30,7 +30,7 @@ const CONNECTION_TIMEOUT_MS = 5000;
 /** @type {{ host: string, port: string, protocol: 'http' | 'https' }} */
 const PRODUCTION_DEFAULT_CONFIG = {
   host: '147.93.108.205', // VPS Production Server
-  port: '5005',           // Real backend port
+  port: '5001',           // Real backend port
   protocol: 'http',
 };
 
@@ -102,12 +102,17 @@ const getRuntimeDefaultConfig = () => {
   const runningLocally = runtimeHost === 'localhost' || runtimeHost === '127.0.0.1';
   const isFileProtocol = runtimeProtocol === 'file:';
 
-  if (runningLocally || isFileProtocol) {
+  if (runningLocally) {
     return {
       host: 'localhost',
       port: '5000',
       protocol: 'http',
     };
+  }
+
+  // Packaged Electron app runs from file:// and should use production VPS.
+  if (isFileProtocol) {
+    return PRODUCTION_DEFAULT_CONFIG;
   }
 
   return PRODUCTION_DEFAULT_CONFIG;

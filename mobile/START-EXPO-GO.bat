@@ -8,8 +8,14 @@ echo Closing extra Node processes (backend/desktop will need restart after)...
 taskkill /F /IM node.exe >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-REM WiFi IPv4 - update if ipconfig shows a different address
-set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.148.95
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
+  if not defined LAN_IP set LAN_IP=%%a
+)
+set LAN_IP=%LAN_IP: =%
+if "%LAN_IP%"=="" set LAN_IP=10.8.128.217
+set REACT_NATIVE_PACKAGER_HOSTNAME=%LAN_IP%
+set EXPO_PUBLIC_API_HOST=%LAN_IP%
+set EXPO_PUBLIC_API_PORT=5000
 set NODE_OPTIONS=--max-old-space-size=8192
 set METRO_MAX_WORKERS=1
 

@@ -8,8 +8,8 @@ import { getServerUrl, getDefaultServerUrl } from '../utils/serverConfig';
 // The API base URL is configurable through the Server Settings screen
 // Users can change the server IP without rebuilding the app
 //
-// To change DEFAULT server (for all new installs):
-// Edit mobile/src/utils/serverConfig.js -> DEFAULT_CONFIG
+// Dev (npm start): auto-connects to local PC backend (LAN IP :5000)
+// Production APK: uses VPS in mobile/src/utils/serverConfig.js
 //
 // To change server at runtime:
 // Go to Login Screen → Server Settings
@@ -38,12 +38,23 @@ const api = axios.create({
   },
 });
 
-// Update cached URL in background (non-blocking)
-getApiBaseUrl().then(url => {
+// Refresh base URL before each request (picks up config changes after initServerConfig)
+api.interceptors.request.use(
+  async (config) => {
+    const url = await getServerUrl();
+    config.baseURL = url;
+    api.defaults.baseURL = url;
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Initial load
+getApiBaseUrl().then((url) => {
   cachedBaseURL = url;
   api.defaults.baseURL = url;
   console.log('✅ [API] Server URL loaded:', url);
-}).catch(error => {
+}).catch((error) => {
   console.warn('⚠️ Could not load saved server config, using default:', error.message);
 });
 
