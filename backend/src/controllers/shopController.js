@@ -9,6 +9,9 @@ const INVOICE_DETAILS_TABLE = useSQLite ? 'invoice_items' : 'invoice_details';
 console.log(`🔧 Shop Controller: Using tables - Orders: "${ORDER_DETAILS_TABLE}", Invoices: "${INVOICE_DETAILS_TABLE}" (SQLite=${useSQLite})`);
 
 const hasManagementScope = (reqUser) => {
+  // If user has a salesman_id, they are a field salesman — always filter their shops
+  if (reqUser?.salesman_id) return false;
+  
   const role = normalizeRoleName(reqUser?.role_name || reqUser?.role);
   return role === ROLES.ADMIN || role === ROLES.SENIOR_MANAGER || role === ROLES.MANAGER;
 };

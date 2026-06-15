@@ -107,8 +107,10 @@ const DeliveryTrackingPage = () => {
       const response = await deliveryService.getAllDeliveries(queryFilters);
       setDeliveries(response.data || []);
       setTotalPages(response.pagination?.totalPages || 1);
-      setTotalRecords(response.pagination?.totalRecords || 0);
-      setCurrentPage(response.pagination?.currentPage || 1);
+      setTotalRecords(response.pagination?.total || 0);
+      // NOTE: currentPage is NOT synced from the response — backend field is
+      // 'page' not 'currentPage', and resetting state here caused every
+      // page-change click to snap back to page 1.
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load deliveries' });
     } finally {

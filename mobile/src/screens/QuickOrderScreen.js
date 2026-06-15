@@ -38,63 +38,45 @@ const QuickOrderScreen = ({ navigation }) => {
     filterShops();
   }, [searchQuery, shops]);
 
-  const loadShops = async () => {
-    try {
-      setLoading(true);
-      
-      // Get current user's route_id for filtering (salesman isolation)
-      const userStr = await AsyncStorage.getItem('user');
-      let userRouteId = null;
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        // If user is salesman (role_id = 3), filter by their route
-        if (user.role_id === 3) {
-          const salesmanStr = await AsyncStorage.getItem('salesman');
-          if (salesmanStr) {
-            const salesman = JSON.parse(salesmanStr);
-            userRouteId = salesman.route_id;
-            console.log(`🔒 [ISOLATION] Filtering shops for salesman's route: ${userRouteId}`);
-          }
-        }
-      }
-      
-      // Load shops using hybrid service (server first, then cache)
-      // Apply route filter for salesman isolation
-      const filters = userRouteId ? { routeId: userRouteId } : {};
-      const shopsData = await shopService.getShops(filters);
-      
-      // Filter active shops only
-      const activeShops = shopsData.filter(shop => shop.is_active === 1);
-      
-      setShops(activeShops);
-      setFilteredShops(activeShops);
+const loadShops = async () => {
+  try {
+    setLoading(true);
 
-      // Show alert if no shops found
-      if (activeShops.length === 0) {
-        Alert.alert(
-          'No Shops Available',
-          'No shops found. Please sync data from the server first.',
-          [
-            { text: 'OK' },
-            { 
-              text: 'Sync Now', 
-              onPress: async () => {
-                const result = await shopService.forceRefresh();
-                if (result.success) {
-                  loadShops(); // Reload after sync
-                }
+    // Server already returns only this salesman's shops (filtered by salesman_id)
+    // No need for AsyncStorage or manual route filtering here
+    const shopsData = await shopService.getShops({});
+
+    // Filter active shops only
+    const activeShops = shopsData.filter(shop => shop.is_active === 1);
+
+    setShops(activeShops);
+    setFilteredShops(activeShops);
+
+    if (activeShops.length === 0) {
+      Alert.alert(
+        'No Shops Available',
+        'No shops found. Please sync data from the server first.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Sync Now',
+            onPress: async () => {
+              const result = await shopService.forceRefresh();
+              if (result.success) {
+                loadShops();
               }
             }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Error loading shops:', error);
-      showToast('Failed to load shops. Please try again.', 'error');
-    } finally {
-      setLoading(false);
+          }
+        ]
+      );
     }
-  };
+  } catch (error) {
+    console.error('Error loading shops:', error);
+    showToast('Failed to load shops. Please try again.', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const filterShops = () => {
     if (!searchQuery.trim()) {
@@ -111,31 +93,26 @@ const QuickOrderScreen = ({ navigation }) => {
     setFilteredShops(filtered);
   };
 
-  const handleShopSelect = (shop) => {
-    // Check if user is authenticated and is a salesman (role_id = 3)
-    if (!user || (user.role_id !== 3 && user.role !== 'Salesman')) {
-      Alert.alert(
-        'Authentication Required', 
-        'Please ensure you are logged in as a salesman to create orders.',
-        [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]
-      );
-      return;
-    }
+    const handleShopSelect = (shop) => {
+      // A salesman always has a salesman_id linked to their user account
+      if (!user || !user.salesman_id) {
+        Alert.alert(
+          'Authentication Required',
+          'Please ensure you are logged in as a salesman to create orders.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+        return;
+      }
 
-    // For salesman users, use user.id as the salesman identifier
-    const salesmanId = user.salesman_id || user.id;
-
-    navigation.navigate('ProductSelection', {
-      shopId: shop.id,
-      shopName: shop.shop_name,
-      salesmanId: salesmanId,
-      salesmanName: user.full_name || user.username,
-      routeId: shop.route_id,
-      routeName: shop.route_name || 'N/A',
-    });
-  };
+      navigation.navigate('ProductSelection', {
+        shopId: shop.id,
+        shopName: shop.shop_name,
+        salesmanId: user.salesman_id,
+        salesmanName: user.full_name || user.username,
+        routeId: shop.route_id,
+        routeName: shop.route_name || 'N/A',
+      });
+    };
 
   const renderShopItem = ({ item }) => (
     <TouchableOpacity

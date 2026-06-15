@@ -39,7 +39,7 @@ function buildItemRow(item, rowNum, lineNetBaseline) {
         ? (discKept / grossKept) * 100
         : 0;
   const qtyLabel =
-    ret > 0 ? `${kept}<span style="font-size:4.5pt">(-${ret})</span>` : `${kept}`;
+    ret > 0 ? `${kept}<span style="font-size:7pt">(-${ret})</span>` : `${kept}`;
   const discCell =
     discKept > 0
       ? `<span class="disc-amt">${formatOrderDiscountPct(discPct)}%<br>-${discKept.toFixed(0)}</span>`
@@ -50,7 +50,7 @@ function buildItemRow(item, rowNum, lineNetBaseline) {
       <td>${rowNum}</td>
       <td>${item.product_name}${
         item.product_code
-          ? ` <span style="font-size:4.5pt;color:#555">[${item.product_code}]</span>`
+          ? ` <span style="font-size:7pt;color:#555">[${item.product_code}]</span>`
           : ''
       }</td>
       <td class="right">${qtyLabel}</td>
@@ -161,7 +161,7 @@ export function buildDeliveryChallanPrintDocument({
   <meta charset="utf-8">
   <title>Delivery Challan - ${challan.challan_number}</title>
   <style>
-    @page { size: A6 portrait; margin: 2mm; }
+    @page { size: A4 portrait; margin: 10mm; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
@@ -171,76 +171,76 @@ export function buildDeliveryChallanPrintDocument({
       padding: 0;
       background: white;
       color: #111;
-      font-size: 6pt;
-      line-height: 1.1;
+      font-size: 10pt;
+      line-height: 1.2;
     }
     .header {
-      border-bottom: 1px solid #111;
-      padding-bottom: 3px;
-      margin-bottom: 4px;
+      border-bottom: 1.5px solid #111;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
     }
     .header-top {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      gap: 4px;
+      gap: 8px;
     }
-    .company-name { font-size: 7.5pt; font-weight: 700; color: #111; }
-    .header-meta { text-align: right; font-size: 5.5pt; line-height: 1.15; }
-    .doc-title { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; }
-    .company-details { font-size: 5pt; color: #444; margin-top: 1px; }
+    .company-name { font-size: 15pt; font-weight: 700; color: #111; }
+    .header-meta { text-align: right; font-size: 9pt; line-height: 1.3; }
+    .doc-title { font-size: 11pt; font-weight: 700; text-transform: uppercase; }
+    .company-details { font-size: 8.5pt; color: #444; margin-top: 2px; }
     .status-badge {
       display: inline-block;
-      padding: 0 3px;
+      padding: 1px 5px;
       border: 1px solid #333;
-      font-size: 5pt;
+      font-size: 8.5pt;
       font-weight: 600;
       text-transform: uppercase;
     }
     .info-strip {
       border: 1px solid #ccc;
-      padding: 2px 3px;
-      margin-bottom: 4px;
-      font-size: 5.5pt;
-      line-height: 1.2;
+      padding: 5px 8px;
+      margin-bottom: 8px;
+      font-size: 9pt;
+      line-height: 1.4;
     }
-    .info-line { display: flex; gap: 3px; flex-wrap: wrap; }
-    .info-line + .info-line { margin-top: 1px; }
+    .info-line { display: flex; gap: 6px; flex-wrap: wrap; }
+    .info-line + .info-line { margin-top: 2px; }
     .info-tag { font-weight: 700; color: #333; }
     .items-two-col {
       display: flex;
-      gap: 1.5mm;
+      gap: 3mm;
       width: 100%;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
       align-items: flex-start;
     }
     .items-col { flex: 1; min-width: 0; width: 50%; }
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 5pt;
+      font-size: 8.5pt;
       table-layout: fixed;
     }
-    .items-table .col-num { width: 6%; }
+    .items-table .col-num  { width: 6%;  }
     .items-table .col-item { width: 28%; }
-    .items-table .col-qty { width: 12%; }
+    .items-table .col-qty  { width: 12%; }
     .items-table .col-rate { width: 14%; }
     .items-table .col-disc { width: 14%; }
-    .items-table .col-amt { width: 26%; }
+    .items-table .col-amt  { width: 26%; }
     .items-table .disc-col .disc-amt { color: #333; font-weight: 600; }
     .items-table thead th {
       background: #eee;
       color: #111;
-      padding: 1px 1px;
+      padding: 2px 3px;
       text-align: left;
       font-weight: 700;
-      font-size: 4.5pt;
+      font-size: 7.5pt;
       text-transform: uppercase;
       border: 1px solid #aaa;
     }
     .items-table thead th.right { text-align: right; }
     .items-table tbody td {
-      padding: 1px 1px;
+      padding: 2px 3px;
       border: 1px solid #ccc;
       vertical-align: top;
       word-wrap: break-word;
@@ -250,71 +250,71 @@ export function buildDeliveryChallanPrintDocument({
     .items-totals {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 4px;
-      font-size: 5.5pt;
+      margin-bottom: 8px;
+      font-size: 9pt;
       table-layout: fixed;
     }
-    .items-totals col.num { width: 6%; }
+    .items-totals col.num  { width: 6%;  }
     .items-totals col.item { width: 28%; }
-    .items-totals col.qty { width: 12%; }
+    .items-totals col.qty  { width: 12%; }
     .items-totals col.rate { width: 14%; }
     .items-totals col.disc { width: 14%; }
-    .items-totals col.amt { width: 26%; }
+    .items-totals col.amt  { width: 26%; }
     .items-totals thead th {
       background: #eee;
       color: #111;
-      padding: 1px 2px;
+      padding: 3px 4px;
       text-align: left;
       font-weight: 700;
-      font-size: 4.5pt;
+      font-size: 7.5pt;
       text-transform: uppercase;
       border: 1px solid #aaa;
     }
     .items-totals thead th.right { text-align: right; }
     .items-totals tbody td {
-      padding: 1px 2px;
+      padding: 3px 4px;
       font-weight: 700;
       border: 1px solid #aaa;
-      font-size: 5.5pt;
+      font-size: 9pt;
     }
     .items-totals .right { text-align: right; }
     .notice-box {
-      margin-bottom: 3px;
-      padding: 2px 3px;
+      margin-bottom: 6px;
+      padding: 5px 8px;
       border: 1px solid #ccc;
-      font-size: 5.5pt;
-      line-height: 1.15;
+      font-size: 9pt;
+      line-height: 1.3;
     }
-    .notice-title { font-weight: 700; text-transform: uppercase; font-size: 5pt; }
-    .financial-section { width: 72%; margin-left: auto; margin-bottom: 4px; }
+    .notice-title { font-weight: 700; text-transform: uppercase; font-size: 8.5pt; }
+    .financial-section { width: 72%; margin-left: auto; margin-bottom: 8px; }
     .fin-row {
       display: flex;
       justify-content: space-between;
-      padding: 1px 2px;
-      font-size: 5.5pt;
+      padding: 2px 4px;
+      font-size: 9pt;
     }
     .fin-row.border { border-bottom: 1px solid #ddd; }
     .fin-row.total,
     .fin-row.total-dark {
-      border: 1px solid #111;
+      border: 1.5px solid #111;
       font-weight: 700;
-      font-size: 6pt;
-      padding: 2px 3px;
-      margin-top: 1px;
+      font-size: 10pt;
+      padding: 4px 6px;
+      margin-top: 2px;
     }
-    .balance-block { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #999; }
+    .balance-block { margin-top: 4px; padding-top: 4px; border-top: 1px dashed #999; }
     .signatures {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr 1fr;
-      gap: 4px;
-      margin-top: 5px;
-      padding-top: 3px;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 6px;
       border-top: 1px solid #ccc;
     }
     .sig-box { text-align: center; }
-    .sig-line { border-bottom: 1px solid #333; height: 12px; margin-bottom: 1px; }
-    .sig-label { font-size: 5pt; font-weight: 600; color: #222; }
-    .footer { text-align: center; margin-top: 3px; font-size: 4.5pt; color: #666; }
+    .sig-line { border-bottom: 1px solid #333; height: 22px; margin-bottom: 2px; }
+    .sig-label { font-size: 8.5pt; font-weight: 600; color: #222; }
+    .footer { text-align: center; margin-top: 6px; font-size: 7.5pt; color: #666; }
     @media print {
       body { width: auto; padding: 0; min-height: auto; }
       .items-table thead th,

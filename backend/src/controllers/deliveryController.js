@@ -37,7 +37,7 @@ exports.getAvailableOrdersForDelivery = async (req, res) => {
         )
       GROUP BY o.id
       ORDER BY o.created_at DESC
-      LIMIT 100
+      LIMIT 500
     `);
 
     console.log(`✅ Found ${orders.length} orders available for delivery`);
@@ -358,7 +358,7 @@ exports.getDeliveriesByInvoice = async (req, res) => {
 
     const filters = {
       invoice_id: invoiceId,
-      limit: 100 // Get all deliveries for this invoice
+      limit: 100000 // Return all deliveries for this invoice — no practical cap
     };
 
     // Use getAllWithItems to include delivery_items

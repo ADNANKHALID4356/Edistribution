@@ -218,17 +218,19 @@ class StockReturn {
           WHERE id = ?
         `, [returnItem.quantity_returned, deliveryItemId]);
 
-        // 9. Re-add stock to warehouse (insert row if missing)
-        const [wsUpdate] = await connection.query(`
-          UPDATE warehouse_stock
-          SET quantity = quantity + ?
-          WHERE warehouse_id = ? AND product_id = ?
-        `, [returnItem.quantity_returned, delivery.warehouse_id, deliveryItem.product_id]);
-        if (!wsUpdate.affectedRows) {
-          await connection.query(`
-            INSERT INTO warehouse_stock (warehouse_id, product_id, quantity, created_by)
-            VALUES (?, ?, ?, ?)
-          `, [delivery.warehouse_id, deliveryItem.product_id, returnItem.quantity_returned, userId || null]);
+      // 9. Re-add stock to warehouse (insert row if missing) - only if a warehouse is set
+        if (delivery.warehouse_id) {
+          const [wsUpdate] = await connection.query(`
+            UPDATE warehouse_stock
+            SET quantity = quantity + ?
+            WHERE warehouse_id = ? AND product_id = ?
+          `, [returnItem.quantity_returned, delivery.warehouse_id, deliveryItem.product_id]);
+          if (!wsUpdate.affectedRows) {
+            await connection.query(`
+              INSERT INTO warehouse_stock (warehouse_id, product_id, quantity, created_by)
+              VALUES (?, ?, ?, ?)
+            `, [delivery.warehouse_id, deliveryItem.product_id, returnItem.quantity_returned, userId || null]);
+          }
         }
 
         // 10. Update product main stock_quantity

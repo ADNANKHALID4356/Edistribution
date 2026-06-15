@@ -2,7 +2,8 @@
 // Purpose: Configure company information for invoices and reports
 
 import React, { useState, useEffect } from 'react';
-import { Building2, Phone, CreditCard, Save, AlertCircle, CheckCircle2, Globe, MapPin } from 'lucide-react';
+import { Building2, Phone, CreditCard, Save, AlertCircle, CheckCircle2, Globe, MapPin, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import settingsService from '../../services/settingsService';
 
 const CompanySettingsPage = () => {
@@ -58,6 +59,7 @@ const CompanySettingsPage = () => {
     default_tax_percentage: 0,
     default_credit_days: 30
   });
+  const navigate = useNavigate();
 
   // Load existing settings on component mount
   useEffect(() => {
@@ -157,18 +159,27 @@ const CompanySettingsPage = () => {
     );
   }
 
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <Building2 className="h-8 w-8 text-blue-600" />
-          Company Settings
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Configure your company information for invoices, reports, and branding
-        </p>
-      </div>
+return (
+  <div className="p-6 max-w-7xl mx-auto">
+    {/* Header */}
+    <div className="mb-6">
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard')}
+        className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors mb-4"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Dashboard
+      </button>
+
+      <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+        <Building2 className="h-8 w-8 text-blue-600" />
+        Company Settings Testing
+      </h1>
+      <p className="text-gray-600 mt-2">
+        Configure your company information for invoices, reports, and branding
+      </p>
+    </div>
 
       {/* Alert Messages */}
       {message.text && (

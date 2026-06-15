@@ -543,7 +543,7 @@ class Delivery {
 
       if (deliveredDate) {
         updates.push('delivery_date = ?');
-        params.push(deliveredDate);
+        params.push(new Date(deliveredDate).toISOString().slice(0, 19).replace('T', ' '));
       }
 
       if (status === 'delivered') {
